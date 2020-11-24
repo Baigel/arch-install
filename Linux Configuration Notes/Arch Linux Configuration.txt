@@ -1,0 +1,452 @@
+  // Made By Baigel (https://github.com/Baigel)
+
+Still Need to Fix:
+	 - Correct Login Screen at Boot
+	 - Screen Flashes session when waking up from sleep
+	 - Computer Crashes when rebooting
+	 - PC takes long time to shutdown or boot
+	 - Please find a better way to disable numlock (see macros section)
+
+
+Arch Linux KDE Plasma 5 Customization Document:
+
+Install Arch Linux and Plasma 5:
+	Arch Linux Install:   https://linoxide.com/distros/beginners-arch-linux-installation-guide/
+	Plasma 5 Install and configure:     https://www.youtube.com/watch?time_continue=160&v=lv5CyzsIjJk
+
+	Basic Arch Linux Install Commands:
+		 - Access the wifi by using "ip link" to find interface name, and "wifi-menu -o [interfaceName]" to connect to wifi
+			 - Note: During and after Arch installation, use "pacman -S iw wpa_supplicant dialog wpa_actiond" to install required wifi packages (don't do this yet)
+		 - Set system time: "timedatectl set-ntp true" (Check using "timedatectl status")
+		 - Prepare the Disk
+			 - Make correct partitions using "cfdisk /dev/sda" (Make a swap partition [type 82] and a system partition [type 83], and type "yes" under the write tab to save changes)
+			 - Toggle sda1 as bootable by selecting the "Bootable" tab.
+			 - Make both partions ext4 file system using the command "mkfs.ext4 /dev/sdaX"
+				 - Mount the partitions using these commands and make swap files (assumes sda1 is system and sda2 is swap)
+				 - "mount /dev/sda1 /mnt"
+				 - "mkswap /dev/sda2"
+				 - "swapon /dev/sda2"
+		 - Install Arch linux base system:
+			 - Backup the mirrors: "cp /etc/pacman.d/mirrorlist /etc/pacman.d/mirrorlist.backup" (Note: this clears the original mirrorslist file),
+				rank the mirrors in order from fastest to slowest: "rankmirrors -n 6 /etc/pacman.d/mirrorlist.backup > /etc/pacman.d/mirrorlist" (NOTE: THE ABOVE 
+				COMMAND REQUIRES 'pacman-contrib' TO BE INSTALLED. INSTEAD OF THAT MANUALLY UNCOMMENT GEOGRAPHICALLY DISTANT SERVERS ("nano /etc/pacman.d/mirrorlist"))
+			 - Install Arch: "pacstrap /mnt base base-devel"
+		 - Generate the fstab file: "genfstab -U /mnt >> /mnt/etc/fstab", "cat /mnt/etc/fstab" (the last command is just a way of checking it worked)
+		 - Change the root system: "arch-chroot /mnt" (At this point, you can install wifi drivers)
+		 - Change the system time: "ln -sf /usr/share/zoneinfo/Australia/Brisbane /etc/localtime", then "hwclock --systohc"
+		 - Configure the host: "echo archlinux > /etc/hostname", then "nano /etc/hosts" and add "#<ip-address>	<localhost.domain.org>	<hostname>"
+													"127.0.0.1	localhost.localdomain	localhost"
+													"::1		localhost.localdomain	localhost"
+													"127.0.1.1	archlinux.localdomain	archlinux"
+		 - Add a new user: "useradd -m -G wheel,users -s /bin/bash [username]" (then use "passwd" and "passwd [username]" to change password of root and [username] respectively)
+			 - "nano /etc/sudoers" and add "[username] ALL=(ALL) ALL" underneath "root ALL=(ALL) ALL"
+		 - Configure network dynamically: "systemctl enable dhcpcd" (This can cause issues later and may need to be disabled later - see issues section for details)
+		 - Install Grub bootloader: "pacman -S grub os-prober", then "grub-install --recheck --target=i386-pc /dev/sdX", then "grub-mkconfig -o /boot/grub/grub.cfg"
+		 - Exit and Quit: "exit", then "umount -R /mnt", then "reboot"
+
+	Basic KDE Plasma 5 Install Commands: (after installing arch, it may be nessacary to "sudo systemctl disable dhcpcd" to let wifi work - run "sudo wifi-menu -o [networkinterface]")
+		 - Install Packages: "sudo pacman -S xorg xorg-xinit"
+		 - Create X initiation file: "echo "exec startkde" > ~/.xinitrc"
+		 - Install Plasma Desktop: "sudo pacman -S plasma-desktop"
+		 - Install a desktop manager: "sudo pacman -S sddm", and enable using "sudo systemctl enable sddm.service"
+		 - (Optionally install some other nice programs: "sudo pacman -S konsole dolphin chromium kate")
+
+Things done after installation:
+	 - Connect to internet
+	 - Corrected the system time
+	 - Installed (if not already installed): dolphin, konsole, chrome, kate
+	 - Configured Raid1 and Backups:
+		 - Install 'lvm' for Raid 1 (see below), and setup 'LaptopFiles' Backup, and 'GDrive' Backup
+			 - Create Physical Volumes: "sudo pvcreate /dev/sdXX /dev/sdXX" (add "-ff" if problems encountered)
+				 - In the case of LaptopFiles Backup: "sudo pvcreate /dev/sda3 /dev/sdb2"
+				 - In the case of GDrive Backup: "sudo pvcreate /dev/sdb1 /dev/sdc1"
+			 - Create Volume Group: "sudo vgcreate VolGroup00 /dev/sdXX /dev/sdXX"
+				 - In the case off LaptopFiles Backup: "sudo vgcreate Backups /dev/sda3 /dev/sdb2"
+				 - In the case off GDrive Backup: "sudo vgcreate Backups /dev/sdb1 /dev/sdc1"
+			 - Create Logical Volumes: "lvcreate --type RaidLevel [OPTIONS] -n Name -L Size VG [PVs]"
+				 - This will usually look something like this:
+					 - "sudo lvcreate --type raid1 --mirrors 1 --activate ay -autobackup y --permissions rw --persistent y --minor 4 -L XXXG -n Name VolGroup00 /dev/sdXX /dev/sdXX"
+					 - In the case of LaptopFiles Backup: "sudo lvcreate --type raid1 --mirrors 1 --activate ay -autobackup y --permissions rw --persistent y --minor 4 -L 74.45G -n LaptopFiles Backups /dev/sda3 /dev/sdb2"
+					 - In the case of GDrive Backup: "sudo lvcreate --type raid1 --mirrors 1 --activate ay -autobackup y --permissions rw --persistent y --minor 4 -L 111.8G -n GDrive Backups /dev/sdb1 /dev/sdc1"
+			 - Create Filesystem: "sudo mkfs.ext4 /dev/VolGroup00/Name" and then "df -h /dev/VolGroup00/Name"
+				 - In the case of LaptopFiles Backup: "sudo mkfs.ext4 /dev/Backups/LaptopFiles" and then "df -h /dev/Backups/LaptopFiles"
+				 - In the case of GDrive Backup: "sudo mkfs.ext4 /dev/Backups/GDrive" and then "df -h /dev/Backups/GDrive"
+			 - Make Directories: "sudo mkdir -p /VolGroup00/Name"
+				 - In the case of LaptopFiles Backup: "sudo mkdir -p /Backups/LaptopFiles"
+				 - In the case of GDrive Backup: "sudo mkdir -p /Backups/GDrive"
+			 - Mount Filesystem: "sudo mount /dev/VolGroup00/Name /VolGroup00/Name"
+				 - In the case of LaptopFiles Backup: "sudo mount /dev/Backups/LaptopFiles /Backups/LaptopFiles"
+				 - In the case of GDrive Backup: "sudo mount /dev/Backups/GDrive /Backups/GDrive"
+			 - Add all drives to the fstab file:
+				 - "sudo nano /etc/fstab"
+				 - "/dev/Name   /VolGroup00/Name      ext4    defaults        0       2"
+					 - In the case of LaptopFiles Backup: "/dev/Backups/LaptopFiles   /Backups/LaptopFiles      ext4    defaults        0       2"
+					 - In the case of GDrive Backup: "/dev/Backups/GDrive   /Backups/GDrive      ext4    defaults        0       2"
+			 - Make Drives read/write without root: "sudo chmod 777 /VolGroup/Name"
+				- In the case of LaptopFiles Backup: "sudo chmod 777 /Backups/LaptopFiles"
+				- In the case of GDrive Backup: "sudo chmod 777 /Backups/GDrive"
+			 - Check sync/copy status and other stuff: "sudo lvs"
+		 - Make the 'LaptopFiles' Drive Network Available
+			 - ________________________
+		 - 
+		 - Install rsync/synckron for backup and sync (see below)
+		 - ______________________
+	 - Changed in Settings:
+		 - Configure to 'icon view'
+		 - Theme changed to Breeze Dark, and mouse theme changed to Breeze Light
+		 - Virtual Desktops Made (Under Desktop Behavior) (My Stuff, Ahmed's Stuff), and switching animation changes to 'Desktop Cube Animation'
+		 - Under Shortcuts in Virtual Desktops Tab, 'Switch One Desktop to the Left' changed to 'Num+Enter' and Right was changed to 'Num++' (or 'ctr+win+L/R' if no numpad)
+			 - (might be under Activities Tab - 'create activity') (can also be under global shortcuts, under shortcuts, look for 'kwin')
+		 - Under 'Configure Screen Locking' change the keyboard shortcut to 'Meta+L' (Meta is the windows key)
+		 - Under 'Screen Locking' change 'Lock screen automatically after' to 20 mins, and 'Require password after locking' to '10 secs'
+		 - Right click on task manager, select 'Alternatives', then select 'Icons-only Task Manager' (You will need to go to 'Configure Icons-only Task Manager' and select
+			'Show only tasks from the current desktop', as well as repin programs to task bar.
+		 - Task Manager Settings > General: activate 'Show tooltips' box,  select 'Show only tasks from the current desktop'
+		 - In 'Application Launcher Settings' remove the 'History' tab, select 'Show applications by name' as well as "sort alphabetically"
+`		 - Under 'Launch Feedback' change 'cursor' to 'static'
+		 - Configure task bar, then add widget, and drag the battery/brightness widget too the taskbar and drop it
+		 - Pin konsole, settings, dolphin, and chrome to taskbar and favourites
+		 - Go to 'Splash Screen' > 'Get New Theme' and install new/better splash screens, and then apply it.
+		 - Under 'Screen Edges' make the botton right corner 'show desktop'
+		 - Undr 'Plasma Theme', install the 'Material-Manjaro-darl' either from a file, or for the 'get new plasma themes'  button.
+		 - Under "Display and Monitor" always use "OpenGL 3.1" to render as it looks the best.
+		 - Under Input Device, Mouse, set the acceleration profile to flat.
+	 - Make the initial login screen look decent: "sudo nano /etc/sddm.conf" _________________
+	 - Change user icon: Install User Management package: "sudo pacman -S user-manager", then go to system settings > Account Details, then change details accordingly.
+	 - In the home directory, create a pictures/documents/downloads folder
+	 - Change the wallpaper/lock screen wallpaper to something that looks nice
+	 - Get audio working using "sudo pacman -S alsa-utils", then "alsamixer" (restart), get sound buttons/icon using "sudo pacman -S kmix" (run kmix program - if it is not already running)
+	 - Make AUR package installation easier by installing yaourt (see installation below)
+	 - Install a new App Launcher by downloading one (preferably 'Tiled Menu') from the KDE Store, and installing it by downloading the file and clicking 'Get New Widgets' under the widgets menu (make sure to configure it).
+	 - Installed: NetworkManager, 7zip, grive and grive-tools, kiodrive, spotify, discord, screenfetch, libreoffice, github local, nestopia , mirage, retroarch, mpv, gimp, kdeconnect, flameshot, mailspring, minetime,psmisc __________
+		(see below for installation) (pin necessary programs to favourites)
+	 - Programming IDEs: code::blocks, pycharm, texstudio, android studio, _________	(see below for installation) (pin necessary programs to favourites)
+	 - Config flameshot: Go to System Settings, Shortcuts, Global Shortcuts, +, then add flameshot, and set the shortcut to Num+right (make sure numlock is disabled/mapped to nothing).
+	 - Block spotify ads using DNS (see below)
+	 - Using KDEConnet (install the KDEConnect app on android) pair the devices over wifi, allow permissions in android and enjoy!
+     - Install Printer functionality:
+         - Install CUPS ("sudo pacman -S cups cups-pdf")
+         - Enable and Start 'org.cups.cupsd.socket'
+         - Allow users to add printers: Find /etc/cups/cups-files.conf as root. Look for the line with SystemGroup sys root add wheel to it.
+         - Add printers by going to the web interface: "http://localhost:631/"
+	 - Install functionality for sleeping:
+		 - Enable 'systemctl suspend' command if not already done so.
+		 - For laptop:
+		 	 - Install acpid
+			 - Edit "/etc/systemd/logind.conf"
+			 - Uncomment the lines:
+				 - HandleSuspendKey=suspend
+				 - HandleLidSwitch=suspend
+				 - HandleLidSwitchExternalPower=suspend
+				 - HandleLidSwitchDocked=suspend (you will need to change this one from 'ignore' to 'suspend')
+			 - Change lines to:
+				 - 'HandlePowerKey=poweroff' to 'HandlePowerKey=suspend'
+			 - Restart systemd daemon
+				 - 'systemctl daemon-reexec' OR ' 'systemctl daemon-reload' (I don't really know which to use - the goal is to restart systemd)
+	 - Make boot login plasma
+		 - In file: '/usr/lib/sddm/sddm.conf.d/default.conf'
+		 - Under '[Theme]'
+		 - Make 'Current=' into 'Current=breeze'
+		 - Make 'CurrentTheme=' into 'CurrentTheme=breeze'
+	 - Bind Keys to macros
+		 - Left/Right desktop should already be done in settings above
+		 - Install xbindkeys and playerctl
+		 - Find what a key code is by using "xbindkeys --key"
+		 - Generate xbindkeys config file: "xbindkeys -d > ~/.xbindkeysrc"
+		 - Edit the config file.
+		 - Add key binds using the following syntax:
+			 - ""[command]" /n [key]"
+		 - Disable Numlock by adding:
+			# Disable Numlock
+			"numlockx off" #Requires numlockx to be installed. This solution is stupid - please come up with something that is better than installing an entirely new package just to turn off numlock after turning it off.
+   			    Num_Lock
+		 - Add the following key binds:
+			# Next Song
+			"playerctl next"
+   			    KP_Down
+			# Previous Song
+			"playerctl previous"
+			   KP_End
+			# Play/Pause Song
+			"playerctl play-pause"
+			   KP_Left
+			# Mute
+			"playerctl volume 0.0"
+			    KP_Next
+		 - Use "xbindkeys --poll-rc" to apply changes.
+		 - To initiate key binds on start, go to 'Startup and Shutdown' in settings, then 'Autostart', click add program, type 'xbindkeys' and select 'run in terminal' under terminal options.
+
+Install Packages (Contains how to run the program as well - if it is command based):
+	 - Programs:
+		 - Window Manager: "sudo pacman -S sddm", then "sudo systemctl enable sddm.service"
+		 - Terminal Emulator: "sudo pacman -S konsole"
+		 - File Explorer: "sudo pacman -S dolphin"
+		 - Text Editor: "sudo pacman -S kate"
+		 - Internet Explorer: "sudo pacman -S firefox"
+		 - Discord (using flatpak): "sudo flatpak  install  flathub org.freedesktop.Platform//18.08 org.freedesktop.Sdk//18.08", then
+			"flatpak install --user https://flathub.org/repo/appstream/com.discordapp.Discord.flatpakref"
+		 - Google Chrome: "sudo pacman -S chromium" (Make sure git is installed: "sudo pacman -S git")
+		 - Spotify: "yay spotify" (Item number 36 (double check)) (Then run 'Spotify' program)
+		 - WPS Office: "yay wps-office" (option 3) (afterwards, run 'WPS' program) (option 7 is good as well)
+		 - LibreOffice: "sudo pacman -S libreoffice-fresh"
+		 - Lightworks: "sudo pacman -S lwks"
+		 - TexStudio: "sudo pacman -S texstudio"
+		 - Github: "yay github-desktop" (option 2)
+		 - Nestopia (NES Emulator): "yay nestopia"
+		 - Taskmanager (ksysguard): "sudo pacman -S ksysguard"
+		 - Steam: "yay steamcmd" _____________
+		 - rsync: _______________________
+		 - Minecraft: "yay minecraft-launcher"
+		 - VLC: "sudo pacman -S vlc"
+		 - GIMP: "sudo pacman -S gimp"
+		 - Mirage: "yay mirage"
+		 - MPV (Video player): "sudo pacman -S mpv"
+		 - GSmartControl (Disk Check): "sudo pacman -S gmsmartcontrol"
+		 - mailspring (mail app): "yay mailspring"
+		 - minetime (calender app): "yay minetime"
+	 - Utilities
+		 - Yaourt (easy AUR installer): "https://aur.archlinux.org/package-query.git" and "https://aur.archlinux.org/yaourt.git" (make sure 'git' is installed)
+		 - Flatpak (application manager): "sudo pacman -S flatpak"
+		 - Network Manager: "sudo pacman -S networkmanager plasma-nm", then "sudo pacman -S network-manager-applet", disable dhcpcd ("sudo systemctl disable dhcpcd"),
+			enable Network Manger using "sudo systemctl enable NetworkManager" (reboot required after)
+		
+		 - LaTeX: "sudo pacman -S texlive-core"
+		 - 7zip: "sudo pacman -S p7zip"
+		 - Audio (alsa + kmix): "sudo pacman -S alsa-utils", then "alsamixer" (restart), get sound buttons/icon using "sudo pacman -S kmix"
+		 - Screenfetch: "sudo pacman -S screenfetch" (use command "screenfetch" to get information)
+		 - Pulseway: download package here: "https://www.pulseway.com/downloads", then "sudo pacman -U [name of file]" (make sure to "cd /home/ahmed/Downloads") (if the install fails,
+			try using '--force' or '--overwrite' on the end of the command), afterwards run "sudo systemctl enable pulseway.service" (REQUIRES 'libidn11' PACKAGE TO WORK)
+		 - Java: "yay openjdk" (option ?/52)
+		 - raider: "yay raider" (option 4)
+		 - playerctl: "yay playerctl" (allows pause/play fucntionality from command line)
+		 - xbindkeys: "sudo pacman -S xbindkeys"
+		 - deepin-screenshot: "sudo pacman -S flameshot"
+		 - numlockx: "sudo pacman -S numlockx"
+		 - LaTeX:
+             - Using Miktex: Install 'miktex-git' and use the miktex-console to install packages (must setup miktex in administrator mode)
+             - Using Texlive and install-tl:
+                 - Install 'texlive-installer' (not sure if this is necessary)
+                 - Download: 'install-tl-unx.tar.gz', extract, and go to extracted folder in terminal.
+                 - Use: 'sudo perl install-tl -gui'
+             - Using Texlive:
+                 - Just install 'texlive-core', 'texlive-bin', 'texlive-latexextra' (and anything else that looks good) and mess around in tex-studio settings until something works.
+	 - Cloud Storage:
+		 - KIO GDrive (Drive File Stream): "sudo pacman -S kio-gdrive", then "kioclient5 exec gdrive:/" to setup (just click the '+' button and follow through)
+		 - Grive Sync: "yay grive" ("grive -a" to sync, '-a' to authorize, '-f' to force download), then grive-tools by "yay grive-tools" (Run 'Google Drive Indicator' program afterwards)
+		 - Google Drive Sync (rclone): ___________________________________________________
+		 - Cloudcross (Command Line Google Drive): "yay cloudcross" (Run using "ccross -a --provider google" for authentication, then just "cd /home/ahmed/GoogleDrive"
+			and "ccross" to sync into /home/ahmed/GoogleDrive. Make sure to make the sync folder first!). "--empty-trash" to empty cloud trash. "--prefer arg" to preference the 
+			cloud files, or the local ones. Replace arg with "remote" to preference cloud, and "local" to prefer local (the default is to preference local files)
+	 - Programming IDEs
+		 - Code::Blocks:
+			 - "sudo pacman -S codeblocks"
+		 - Pycharm: "sudo pacman -S pycharm-community-edition"
+		 - TexStudio (LaTeX): "sudo pacman -S texstudio"
+             - LaTeX: "sudo pacman -S texlive-core"
+         - Arduino: _______________________
+		 - Android Studio: "yay android-studio"
+         - BGI Graphics for Codeblocks
+			 - Programs won't compile (Status -1), so 'xterm' must be installed ("sudo pacman -S xterm")
+			 - Run c++ programs for windows by installing mingw-w64-gcc and mingw-w64-configure (AUR) (IDK if this step is even needed)
+			 - Install graphics.h drivers as normal, but use "/usr/include/" for includes, and "/usr/lib/codeblocks/plugins/" for lib files.
+			 - Install 'libgraph' (AUR) and try to run a graphics.h program. (Note that <conio.h> needs to be replaced with <curses.h>)
+			 - Still doesn't work.
+         - Install a library in Codeblocks (applies for windows as well)
+             - Setup a basic [library] project (you can start with the console wizard)
+             - Apply the compiler flags as needed by [library] under project options -> compiler
+             - Apply the compiler include directories as needed by [library] under project options -> compiler
+             - Apply the linker flags as needed by [library] under project options -> linker
+             - Apply the linker include directories as needed by [library] under project options -> linker
+             - Apply the linker libraries to link against as needed by [library] under project options -> linker
+             - compile... fix bugs... run the application
+
+Printer and Scanner Stuff:
+     - Installing Brother HL-2132 Driver:
+     - Download the ppd file from online (ppd's are os independent - so don't bother search for an arch/manjaro specific one)
+     - Use the downloaded ppd file when installing driver through cups.
+     - Previously, the ppd file for HL-2135 has worked - downloaded from openprinting.org
+     - If you have the issue 'waiting for printer to become active'
+            - "cat > /etc/udev/rules.d/10-usbprinterrules"
+            - "sudo nano /etc/udev/rules.d/10-usbprinterrules"
+            - put " ATTR{idvendor}=="ID_VENDOR_HERE", ATTR{idProduct}=="ID_PRODUCT_HERE", MODE:="0660", GROUP:="lp", ENV{libsane_matched}:="yes" " into the file (make sure to adjust idvendor and idProduct to that of the printer - find values using lsusb)
+            - For the Brother HL-2130, the idvendor is "04f9" and the idProduct is "003f".
+
+             
+Useful commands:
+	 - Edit disk partitions: "cfdisk /dev/sdX"
+	 - View Partitions with information: "lsblk" OR "df"
+	 - Connect to wifi: "ip link" to list network interfaces, then "wifi-menu -o interfacename" to connect
+	 - Make directory: "mkdir [directory]"
+	 - Edit File: "nano [directory]" (ctrl+o, ctrl+x to save and exit) OR "vi [directory]" (:wq to save and exit)
+	 - Remove file: "rm [directory+filename]"stemd 242.29-1
+	 - Remove directory: "rm -r [directory]"
+	 - List files in directory: "ls -a [directory]"
+	 - Copy/Paste File: "cp [directory+file] [directory]"
+	 - Install a package from a aur/custom repository:
+		 - Method 1:
+			 - "yaourt [package]" (note yaourt needs to be installed manually) (DISCONTINUED, See method 2)
+		 - Method 2:
+			 - git clone https://aur.archlinux.org/yay.git
+			 - cd yay
+			 - makepkg -si
+		 - Method 3:
+			 - "git clone [url of git repository]" (use "sudo pacman -S git" if git is installed)
+			 - "cd [package directory + name]"
+			 - "makepkg -s"
+			 - "sudo pacman -U *xz" ('*xz' is the name of the .xz file in the cloned folder)
+	 - List Packages: "sudo pacman -Qe"
+	 - Delete program: "sudo pacman -Rsn [program]"
+	 - View all avaliable UUID's: "blkid"
+	 - Create a Script:
+         - Create a bash script: 'file_name.sh'
+         - Make it executable by using "chmod +x file_name.sh"
+         - Run the script using "bash file_name.sh"
+     - Create a cron jobs
+         - Type "crontab -e"
+         - Add a job using the format: "[minute] [hour] [day of month] [month] [day-of-week] /path/to/script" (use * to run for all minutes/hours/etc)
+         - Save
+         - Use "crontab -l" to list current crontab, "crontab -r" to remove current crontab.
+         - 
+
+Aliases
+     - Setup Aliases
+             - nano ~/.bash_aliases
+             - Add aliases using "alias shortcutCommand='long command/s'"
+      - My Aliases:
+alias xrandr-fix-hdmi='xrandr --output LVDS-1 --auto --pos 0x0 --output HDMI-1 --auto --pos 1600x0 --primary'
+alias update='sudo pacman -Syu'
+alias fix-internet='sudo systemctl stop NetworkManager && sudo systemctl disable NetworkManager && sudo systemctl enable NetworkManager && sudo systemctl start NetworkManager && sudo systemctl status NetworkManager'
+alias SpotifyDownload='cd && bash ~/Ahmed/Scripts/SpotifyDownload.sh'
+
+Scripts:
+     - SpotifyDownload.sh
+#!/bin/bash
+cd
+cd ~/OneDrive/Music/Baigels_Tunes
+spotdl -f ~/OneDrive/Music/Baigels_Tunes -p https://open.spotify.com/playlist/4rru4z2JcnQXI8CpbFT00j?si=xJXBEtD2S7ij9mKzr5tfYg
+spotdl -f ~/OneDrive/Music/Baigels_Tunes --overwrite skip -l baigels_tunes.txt
+cd
+cd ~/OneDrive/Music/Old_School_Goodies
+spotdl -f ~/OneDrive/Music/Old_School_Goodies -p https://open.spotify.com/playlist/1yRCUzdzPxtDFPotpt9EBb?si=g9R4N8-TQGak3X6tzw8qOQ
+spotdl -f ~/OneDrive/Music/Old_School_Goodies --overwrite skip -l old-school-goodies.txt
+cd
+cd ~/OneDrive/Music/2000s
+spotdl -f ~/OneDrive/Music/2000s -p https://open.spotify.com/playlist/02xlb0sEJBjOrydLU7N1NC?si=NQ4-4w67Rj2opGt0rlbGXw
+spotdl -f ~/OneDrive/Music/2000s --overwrite skip -l 2000s.txt
+onedrive
+
+     - 
+
+
+Install Manjaro on Dell Laptop
+     - Wipe the disk from the bios settings
+     - Reset the bios and change the following settings:
+         - General/Boot Sequence: UEFI
+         - General/Advanced Boot Options: Deselect Enable Legacy Option ROMs
+         - General/UEFI Boot path Security: Never
+         - System Configuration/Sata Operation: AHCI
+         - Secure Boot/Secure Boot Enable: Select Secure Boot Enable
+         - Secure Boot/Secure Boot Mode: Audit Mode
+     - Boot to the manjaro installer and continue as normal
+    
+Issues and Fixes:
+	 - /etc/pacman.d/mirrorlist is empty: manually add a mirror (I.E. "Server = http://mirrors.kernel.org/archlinux/$repo/os/$arch" to the file) ***OR*** Restart the installation
+	 - Computer freezes after trying to connect to internet: "systemctl disable dhcpcd", then try reconnecting
+	 - Have to reconnect to internet everytime I reboot: Just install the network manager, "sudo pacman -S networkmanager plasma-nm"
+	 - Issues with wifi: "systemctl enable dhcpcd" OR "systemctl disable dhcpcd" (just try both and stick with the one that works)
+	 - Wifi is not connecting: restart wifi card by flipping the switch on the side of the computer (off then on)
+	 - Signature error when installing packages (PGP signature): "sudo pacman-key --refresh-keys" OR "pacman -Sy archlinux-keyring && pacman -Su" OR "sudo hwclock -w"
+     - KDEConnect fails to mount filesystem of android device: "sudo pacman -S sshfs"
+     - Android Studio: Gradle Build Failed, view the thread: https://stackoverflow.com/questions/46999594/unable-to-resolve-dependency-for-appdebug-compileclasspath-could-not-resolve
+         - Delete the line, "implementation 'com.android.support:appcompat-v7:26.1.0'" in "Gradle Scripts/build.gradle" (Module:app)
+     - Dolphin Fails to Delete File with error: "Unable to create io-slave. klauncher said: Error loading '/usr/lib/qt/plugins/kf5/kio/trash.so'." Just use: "dbus-launch dolphin"
+     - TexStudio package is not installed: try installing "sudo pacman -S texlive-latexextra"
+     - Any sort of issue with plasma desktop: restart it by running "killall plasmashell" and then "kstart5 plasmashell"
+     - Errors while installing on mac:
+         - Blank screen on boot
+             - It should boot up eventually, just give it time.
+             - Proper Fix:
+         - No internet: install drivers "linux419-broadcom-wl" (Note: it is '419' because the kernal version is '419')
+             - Use "inxi -n" to see if driver is installed.
+         - No Sound: 
+         - 
+     - NetworkManager not showing wifi (issue on dell laptop):
+             - Reboot
+             - Revert to older version of the firmware: "sudo pacman -U /var/cache/pacman/pkg/linux-firmware-20191022.2b016af-1-any.pkg.tar.xz"
+             - Update system: "sudo pacman -Syu"
+             - Boot to windows (external harddrive), then boot back to manjaro.
+             - Install iwlwifi (by searching for 'iwl' with yay) or install "iwlwifi-7265-ucode" (dualband)
+     - Hibernate/Suspend missing from application launcher
+             - Probably still exists, just select it from the confirmation menu when you press shutdown or restart:
+             - Actula Fix: __________
+
+    
+Other Stuff:
+	 - Download a spotify track/album/playlist
+         - Method 1
+             - Install spotify-dl ("yay spotify-dl") (is this even necessary?)
+             - Allow storage permissions: "sudo sh -c "$(curl -fsSL https://raw.githubusercontent.com/SwapnilSoni1999/spotify-dl/master/tools/termux.sh)""
+             - Download: "spotifydl https://open.spotify.com/track/xyz" (Example)
+         - Method 2
+             - Install "python-spotdl" (AUR)
+             - "spotdl -p [playlist link]"
+             - "spotdl -l [file name generated by previous command]
+             - Alternatively: "spotdl -s [song link]
+             - Use a custom folder path using: "spotdl -f [folder path] ..."
+
+	 - Block Spotify Ads: Add the following to the hosts file (/etc/hosts) (https://pastebin.com/raw/9M5ALu8n)
+	# Block Spotify Ads
+	127.0.0.1 media-match.com
+	127.0.0.1 adclick.g.doublecklick.net
+	127.0.0.1 http://www.googleadservices.com
+	127.0.0.1 open.spotify.com
+	127.0.0.1 pagead2.googlesyndication.com
+	127.0.0.1 desktop.spotify.com
+	127.0.0.1 googleads.g.doubleclick.net
+	127.0.0.1 pubads.g.doubleclick.net
+	127.0.0.1 securepubads.g.doubleclick.net
+	127.0.0.1 audio2.spotify.com
+	127.0.0.1 http://audio2.spotify.com
+	127.0.0.1 http://www.audio2.spotify.com
+	127.0.0.1 http://www.omaze.com
+	127.0.0.1 omaze.com
+	127.0.0.1 bounceexchange.com
+	127.0.0.1 core.insightexpressai.com
+	127.0.0.1 content.bitsontherun.com
+	127.0.0.1 s0.2mdn.net
+	127.0.0.1 v.jwpcdn.com
+	127.0.0.1 d2gi7ultltnc2u.cloudfront.net
+	127.0.0.1 crashdump.spotify.com
+	127.0.0.1 adeventtracker.spotify.com
+	127.0.0.1 log.spotify.com
+	127.0.0.1 analytics.spotify.com
+	127.0.0.1 ads-fa.spotify.com
+	127.0.0.1 cs283.wpc.teliasoneracdn.net
+	127.0.0.1 audio-ec.spotify.com
+	127.0.0.1 cs126.wpc.teliasoneracdn.net
+	127.0.0.1 heads-ec.spotify.com
+	127.0.0.1 u.scdn.co
+	127.0.0.1 cs126.wpc.edgecastcdn.net
+	127.0.0.1 pagead46.l.doubleclick.net
+	127.0.0.1 pagead.l.doubleclick.net
+	127.0.0.1 video-ad-stats.googlesyndication.com
+	127.0.0.1 pagead-googlehosted.l.google.com
+	127.0.0.1 partnerad.l.doubleclick.net
+	127.0.0.1 prod.spotify.map.fastlylb.net
+	127.0.0.1 adserver.adtechus.com
+	127.0.0.1 na.gmtdmp.com
+	127.0.0.1 anycast.pixel.adsafeprotected.com
+	127.0.0.1 ads.pubmatic.com
+	127.0.0.1 idsync-ext.rlcdn.com
+	127.0.0.1 http://www.googletagservices.com
+	127.0.0.1 sto3.spotify.com
+	127.0.0.1 spclient.wg.spotify.com
+	127.0.0.1 d361oi6ppvq2ym.cloudfront.net
+	127.0.0.1 gads.pubmatic.com
+	127.0.0.1 ads-west-colo.adsymptotic.com
+	127.0.0.1 geo3.ggpht.com
+	127.0.0.1 showads33000.pubmatic.com
+	127.0.0.1 spclient.wg.spotify.com
+	 - 
+
+
