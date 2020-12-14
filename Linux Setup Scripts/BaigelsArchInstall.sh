@@ -99,7 +99,7 @@ EOF
 	echo 'Initialise and reload keys'
 	pacman-key --init
 	pacman-key --populate archlinux
-	pacman-key --refresh-keys
+	#pacman-key --refresh-keys
 
 	# Mounting partitions
 	echo 'Mounting partitions'
@@ -134,12 +134,20 @@ EOF
 	echo ' --- Configuring the System --'
 	echo 'Generating the fstab file'
 	genfstab -U /mnt >> /mnt/etc/fstab
+	
+	# Enter chroot to continue install
 	echo 'Entering chroot to continue install'
 	cp $0 /mnt/arch_install.sh
 	arch-chroot /mnt ./arch_install.sh chroot
 }
 
 configure_arch() {
+
+
+	# testing
+	HOSTNAME='ahmed-vm'
+	USERNAME='ahmed'
+	PASSWORD='toor'
 
 	echo 'Continuing setup in chroot'
 
@@ -157,8 +165,10 @@ configure_arch() {
 	echo 'Setting hostname and configuring network'
 	echo "$HOSTNAME" >> /etc/hostname
 	echo "127.0.0.1	localhost\n::1		localhost\n127.0.1.1	$HOSTNAME.localdomain	$HOSTNAME" >> /etc/hosts
+	#echo 'Installing zsh (needed for useradd)'
+	#sudo pacman -S zsh
 	echo 'Adding user'
-	useradd -m -s /bin/zsh -G adm,systemd-journal,wheel,rfkill,games,network,video,audio,optical,storage,scanner,power,adbusers,wireshark "$USERNAME"
+	useradd -m -s /bin/zsh -G adm,systemd-journal,wheel,rfkill,games,network,video,audio,optical,storage,scanner,power "$USERNAME"
 	echo 'Setting root password'
 	echo -en "$PASSWORD\n$PASSWORD" | passwd
 	echo 'Setting user password'
@@ -166,16 +176,22 @@ configure_arch() {
 	echo 'Adding user as a sudoer'
 	echo "$USERNAME ALL=(ALL) ALL" >> /etc/sudoers
 	chmod 440 /etc/sudoers
-	echo 'Enable dhcpcd'
-	systemctl enable dhcpcd
+	
+	echo 'Add multilib repository'
+	echo "[multilib]\nInclude = /etc/pacman.d/mirrorlist" >> /etc/pacman.conf
+	sudo pacman -Syyu
+	echo 'Installing programs'
+	install_packages
 	echo 'Setting up microde'
 	echo 'microcode' > /etc/modules-load.d/intel-ucode.conf
 	echo 'Enable systemctl services'
-	systemctl enable cronie.service cpupower.service ntpd.service slim.service
+	systemctl enable cpupower.service ntpd.service
 	echo 'Enable systemctl wifi services'
 	systemctl enable net-auto-wired.service net-auto-wireless.service
 	echo 'Updating locate'
 	updatedb
+	#echo 'Enable dhcpcd'
+	#systemctl enable dhcpcd
 
 	echo ' --- Installing Bootloader (grub) --- '
 	pacman -S grub os-prober
@@ -193,13 +209,13 @@ configure_arch() {
 	# Download https://gitlab.manjaro.org/profiles-and-settings/desktop-settings/blob/master/community/bspwm/skel/.config/rofi/config.rasi and place into ~/.config/rofi
 
 	# Set Wallpaper
-	git clone
+	#git clone
 	# Need to make the following wallpaper change permanent
-	feh --bg-scale ~/.wallpaper
+	#feh --bg-scale ~/.wallpaper
 
 
 	# Install atom addons
-	apm install save-workspace
+	#apm install save-workspace
 
 }
 
@@ -207,19 +223,20 @@ configure_arch() {
 
 install_packages() {
 	# Install Software
-	IDEs="visual-studio-code-bin atom"
+	# Software from Official Arch Repository
+	DEVELOPMENT="gcc git python atom"
 	TERMINAL="konsole exa ranger dictd xorg-xev playerctl xdotool screenfetch feh"
 	LATEX="texlive-core texlive-latexextra texlive-science pdftk"
-	OTHER="discord steam dolphin"
-	TOOLS="manjaro-pulse"
-	# Fix up keys (?)
-	sudo pacman-key --refresh-keys
-	sudo pacman -Sy --noconfirm archlinux-keyring && sudo pacman -Su --noconfirm
-	sudo hwclock -w
-	# Software from Official Arch Repository
-	pacman -S --noconfirm $IDES $TERMINAL $LATEX $OTHER
+	NETWORK="ifplugd dialog wireless_tools wpa_supplicant"
+	TOOLS="dolphin discord steam-native firefox"
+	UTILITIES="cpupower vlc alsa-utils aspell-en openssh p7zip"
+	INTEL="intel-ucode"
+	LOGIN=""
+	FONTS=""
+	pacman -Sy --noconfirm $DEVELOPMENT $TERMINAL $LATEX $NETWORK $TOOLS $UTILITIES $INTEL $LOGIN $FONTS
 	# Software AUR Programs
-	AURPrograms=( yay spotify spotify-adblock-git flameshot-git github-desktop-git scrcpy google-keep-nativefier tllocalmgr-git )
+	# github-desktop-git scrcpy
+	AURPrograms=( visual-studio-code-bin yay netcfg wpa_actiond spotify spotify-adblock-git flameshot-git steam-fonts google-keep-nativefier tllocalmgr-git tbsm )
 	cd ~
 	mkdir aur-programs
 	cd aur-programs
@@ -227,7 +244,7 @@ install_packages() {
 		do
 		git clone "https://aur.archlinux.org/"$i".git"
 		cd $i
-		makepkg -si --noconfirm $i
+		makepkg -si --noconfirm --asroot $i
 		cd ..
 	done
 	cd
