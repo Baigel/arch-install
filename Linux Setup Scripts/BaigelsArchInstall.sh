@@ -4,11 +4,12 @@
 # Run system update before executing this script.
 
 # Basic Overview
-# This script requires an internet connection ("ip link" for interface name; "wifi-menu -o [interfaceName]" to connect)
-# Desktop Environment:	KDE(?)
+# Internet connection Required ("ip link" for interface name; "wifi-menu -o [interfaceName]" to connect)
+# Desktop Environment:	
 # Window Manager:	Spectrwm
 
-set -ex
+set -ex # prints each line of sscript for debugging
+#set -e
 
 # Coloured text function declaration
 GREEN='\033[0;32m'
@@ -60,7 +61,6 @@ install_arch() {
 	exec 1> >(tee "stdout.log")
 	exec 2> >(tee "stderr.log")
 
-
 	# Update system clock
 	echo 'Update system clock'
 	timedatectl set-ntp true
@@ -69,15 +69,15 @@ install_arch() {
 
 	# Setup Partitioning
 	echo 'Partitioning the disk'
-	sfdisk /dev/sda << EOF
-label: gpt
-device: /dev/sda
-unit: sectors
+	sfdisk /dev/sda <<- EOF
+	label: gpt
+	device: /dev/sda
+	unit: sectors
 
-,512M,linux
-,2G,swap
-;,home
-EOF
+	,512M,linux
+	,2G,swap
+	;,home
+	EOF
 
 	# Format the partitions and enable swap
 	echo 'Formatting partitions'
@@ -168,18 +168,17 @@ configure_arch() {
 	#echo 'Installing zsh (needed for useradd)'
 	#sudo pacman -S zsh
 	echo 'Adding user'
-	useradd -m -s /bin/zsh -G adm,systemd-journal,wheel,rfkill,games,network,video,audio,optical,storage,scanner,power "$USERNAME"
+	useradd -m -s /bin/bash -G adm,systemd-journal,wheel,rfkill,games,network,video,audio,optical,storage,scanner,power "$USERNAME"
 	echo 'Setting root password'
 	echo -en "$PASSWORD\n$PASSWORD" | passwd
 	echo 'Setting user password'
 	echo -en "$PASSWORD\n$PASSWORD" | passwd $USERNAME
-	echo 'Adding user as a sudoer'
+	echo 'Adding root and user as sudoers'
 	echo "$USERNAME ALL=(ALL) ALL" >> /etc/sudoers
 	chmod 440 /etc/sudoers
 	
 	echo 'Add multilib repository'
 	echo "[multilib]\nInclude = /etc/pacman.d/mirrorlist" >> /etc/pacman.conf
-	sudo pacman -Syyu
 	echo 'Installing programs'
 	install_packages
 	echo 'Setting up microde'
@@ -222,23 +221,28 @@ configure_arch() {
 # Functions
 
 install_packages() {
-	# Install Software
-	# Software from Official Arch Repository
-	DEVELOPMENT="gcc git python atom"
+	# Core software from official Arch repository
+	DEVELOPMENT="gcc git code python atom"
 	TERMINAL="konsole exa ranger dictd xorg-xev playerctl xdotool screenfetch feh"
 	LATEX="texlive-core texlive-latexextra texlive-science pdftk"
-	NETWORK="ifplugd dialog wireless_tools wpa_supplicant"
-	TOOLS="dolphin discord steam-native firefox"
-	UTILITIES="cpupower vlc alsa-utils aspell-en openssh p7zip"
+	NETWORK="ifplugd dialog wireless_tools wpa_supplicant wpa_supplicant_gui"
+	TOOLS="yay dolphin firefox"
+	UTILITIES="playerctl flameshot cpupower vlc alsa-utils aspell-en openssh p7zip"
 	INTEL="intel-ucode"
 	LOGIN=""
 	FONTS=""
 	pacman -Sy --noconfirm $DEVELOPMENT $TERMINAL $LATEX $NETWORK $TOOLS $UTILITIES $INTEL $LOGIN $FONTS
-	# Software AUR Programs
+	# Install Doom Emacs
+	git clone --depth 1 https://github.com/hlissner/doom-emacs ~/.emacs.d
+	~/.emacs.d/bin/doom install
+	
+	# Software AUR Programs and other community packages
+	cat > /tmp/aur_packages.sh <<- EOF
+	#!/bin/bash
 	# github-desktop-git scrcpy
-	AURPrograms=( visual-studio-code-bin yay netcfg wpa_actiond spotify spotify-adblock-git flameshot-git steam-fonts google-keep-nativefier tllocalmgr-git tbsm )
+	AURPrograms=( wpa_actiond spotify spotify-adblock-git steam-fonts tllocalmgr-git )
 	cd ~
-	mkdir aur-programs
+	mkdir -p aur-programs
 	cd aur-programs
 	for i in "${AURPrograms[@]}"
 		do
@@ -249,9 +253,12 @@ install_packages() {
 	done
 	cd
 	rm -rf ~/aur-programs
-	# Install Doom Emacs
-	git clone --depth 1 https://github.com/hlissner/doom-emacs ~/.emacs.d
-	~/.emacs.d/bin/doom install
+	EOF
+	
+	
+	# Other Programs
+	# community: discord steam-native
+	# aur: wpa_actiond spotify spotify-adblock-git steam-fonts tllocalmgr-git tbsm
 }
 
 #get_dot_files() {
