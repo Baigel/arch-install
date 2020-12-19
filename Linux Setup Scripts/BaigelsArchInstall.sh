@@ -178,7 +178,7 @@ configure_arch() {
 	chmod 440 /etc/sudoers
 	
 	echo 'Add multilib repository'
-	echo "[multilib]\nInclude = /etc/pacman.d/mirrorlist" >> /etc/pacman.conf
+	printf "[multilib]\nInclude = /etc/pacman.d/mirrorlist" >> /etc/pacman.conf
 	echo 'Installing programs'
 	install_packages
 	echo 'Setting up microde'
@@ -222,11 +222,11 @@ configure_arch() {
 
 install_packages() {
 	# Core software from official Arch repository
-	DEVELOPMENT="gcc git code python atom"
+	DEVELOPMENT="gcc libstdc++5 git code python atom"
 	TERMINAL="konsole exa ranger dictd xorg-xev playerctl xdotool screenfetch feh"
 	LATEX="texlive-core texlive-latexextra texlive-science pdftk"
-	NETWORK="ifplugd dialog wireless_tools wpa_supplicant wpa_supplicant_gui"
-	TOOLS="yay dolphin firefox"
+	NETWORK="ifplugd dialog wireless_tools wpa_supplicant"
+	TOOLS="dolphin firefox"
 	UTILITIES="playerctl flameshot cpupower vlc alsa-utils aspell-en openssh p7zip"
 	INTEL="intel-ucode"
 	LOGIN=""
@@ -239,12 +239,16 @@ install_packages() {
 	# Software AUR Programs and other community packages
 	cat > /tmp/aur_packages.sh <<- EOF
 	#!/bin/bash
-	# github-desktop-git scrcpy
-	AURPrograms=( wpa_actiond spotify spotify-adblock-git steam-fonts tllocalmgr-git )
+	AURPrograms=( github-desktop-git scrcpy yay wpa_actiond wpa_supplicant_gui spotify spotify-adblock-git steam-fonts tllocalmgr-git )
+	# Prompt user for what programs to install
+	installPackages=""
+	for i in "${AURPrograms[@]}"
+		installPackages+="$i "
+	done
 	cd ~
 	mkdir -p aur-programs
 	cd aur-programs
-	for i in "${AURPrograms[@]}"
+	for i in "${installPackages[@]}"
 		do
 		git clone "https://aur.archlinux.org/"$i".git"
 		cd $i
