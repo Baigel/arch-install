@@ -51,8 +51,8 @@ install_arch() {
 	#[[ "$PASSWORD" == "$PASSWORD2" ]] || ( echo "Passwords did not match; exiting now."; exit 1; )
 
 	# testing
-	HOSTNAME='ahmed-vm'
-	USERNAME='ahmed'
+	HOSTNAME='baigel-vm'
+	USERNAME='baigel'
 	PASSWORD='toor'
 
 	# Setup Logging
@@ -128,8 +128,8 @@ configure_arch() {
 
 
 	# testing
-	HOSTNAME='ahmed-vm'
-	USERNAME='ahmed'
+	HOSTNAME='baigel-vm'
+	USERNAME='baigel'
 	PASSWORD='toor'
 
 	echo 'Continuing setup in chroot'
