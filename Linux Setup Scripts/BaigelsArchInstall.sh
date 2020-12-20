@@ -50,7 +50,6 @@ install_arch() {
 	#echo
 	#[[ "$PASSWORD" == "$PASSWORD2" ]] || ( echo "Passwords did not match; exiting now."; exit 1; )
 
-
 	# testing
 	HOSTNAME='ahmed-vm'
 	USERNAME='ahmed'
@@ -64,31 +63,9 @@ install_arch() {
 	# Update system clock
 	echo 'Update system clock'
 	timedatectl set-ntp true
-
-	echo ' --- Setting Up Boot and Swap Partitions --- '
-
-	# Setup Partitioning
-	echo 'Partitioning the disk'
-	sfdisk /dev/sda <<- EOF
-	label: gpt
-	device: /dev/sda
-	unit: sectors
-
-	,512M,linux
-	,2G,swap
-	;,home
-	EOF
-
-	# Format the partitions and enable swap
-	echo 'Formatting partitions'
-	mkfs.fat -F32 /dev/sda1
-	mkswap /dev/sda2
-	swapon /dev/sda2
-	mkfs.ext4 /dev/sda3
-
-	echo ' --- Initializing Mirror Lists and Keyrings --- '
-
+	
 	# Reorder mirror list
+	echo ' --- Initializing Mirror Lists and Keyrings --- '
 	echo 'Backing up mirrors list'
 	cp /etc/pacman.d/mirrorlist /etc/pacman.d/mirrorlist.backup
 	echo 'Recreating ordered mirror list'
@@ -101,39 +78,45 @@ install_arch() {
 	pacman-key --populate archlinux
 	#pacman-key --refresh-keys
 
+	echo ' --- Setting Up Boot and Swap Partitions --- '
+
+	# Setup Partitioning
+	echo 'Partitioning the disk'
+	sfdisk /dev/sda <<- EOF
+	label: gpt
+	device: /dev/sda
+	unit: sectors
+
+	,512M,uefi
+	,2G,swap
+	;,home
+	EOF
+
+	# Format the partitions
+	echo 'Formatting partitions'
+	mkfs.fat -F32 /dev/sda1
+	mkfs.ext4 /dev/sda3
+
 	# Mounting partitions
 	echo 'Mounting partitions'
 	mount /dev/sda3 /mnt
-	mkdir -pv /mnt/boot/efi
-	mount /dev/sda1 /mnt/boot/efi
+	mkdir -pv /mnt/efi
+	mount /dev/sda1 /mnt/efi
+	
+	# Enable swap
+	mkswap /dev/sda2
+	swapon /dev/sda2
 
 	# Install important packages using pacstrap
 	echo ' --- Installing Base --- '
 	pacstrap /mnt base linux linux-firmware
 
-	# Install Base
-	#echo ' --- Installing Base --- '
-	#echo 'Install essential packages'
-	#echo 'Server = http://mirrors.kernel.org/archlinux/$repo/os/$arch' >> /etc/pacman.d/mirrorlist
-	#pacstrap /mnt base base-devel
-	#pacstrap /mnt syslinux
-	# Absolute chad just gonna assume that chroot worked
-	#echo 'Unmounting filesystems'
-	#umount /mnt/boot
-	#umount /mnt
-	#swapoff /dev/vg00/swap
-	#vgchange -an
-
-	#
-	#echo ' --- Entering Chroot --- '
-	#cp $0 /mnt/setup.sh
-	#arch-chroot /mnt ./setup.sh chroot
-
-
-	# Configure the system
-	echo ' --- Configuring the System --'
+	# Generate fstab
 	echo 'Generating the fstab file'
 	genfstab -U /mnt >> /mnt/etc/fstab
+	
+	# Enable efivarfs
+	modprobe efivarfs
 	
 	# Enter chroot to continue install
 	echo 'Entering chroot to continue install'
@@ -184,17 +167,15 @@ configure_arch() {
 	echo 'Setting up microde'
 	echo 'microcode' > /etc/modules-load.d/intel-ucode.conf
 	echo 'Enable systemctl services'
-	systemctl enable cpupower.service ntpd.service
-	echo 'Enable systemctl wifi services'
-	systemctl enable net-auto-wired.service net-auto-wireless.service
+	systemctl enable cpupower.service
 	echo 'Updating locate'
-	updatedb
+	locale-gen
 	#echo 'Enable dhcpcd'
 	#systemctl enable dhcpcd
 
 	echo ' --- Installing Bootloader (grub) --- '
-	pacman -S grub os-prober
-	grub-install --recheck --target=i386-pc /dev/sda1
+	pacman -S --noconfirm grub os-prober efibootmgr
+	grub-install --recheck --target=x86_64-efi --efi-directory=/efi --bootloader-id=GRUB /dev/sda
 	grub-mkconfig -o /boot/grub/grub.cfg
 	echo 'Exiting'
 	exit
@@ -225,16 +206,17 @@ install_packages() {
 	DEVELOPMENT="gcc libstdc++5 git code python atom"
 	TERMINAL="konsole exa ranger dictd xorg-xev playerctl xdotool screenfetch feh"
 	LATEX="texlive-core texlive-latexextra texlive-science pdftk"
-	NETWORK="ifplugd dialog wireless_tools wpa_supplicant"
-	TOOLS="dolphin firefox"
-	UTILITIES="playerctl flameshot cpupower vlc alsa-utils aspell-en openssh p7zip"
+	NETWORK="netctl ifplugd dialog wireless_tools wpa_supplicant"
+	TOOLS="nano dolphin firefox"
+	UTILITIES="playerctl flameshot feh cpupower vlc usbutils aspell-en openssh p7zip"
 	INTEL="intel-ucode"
+	AUDIO="pulseaudio-alsa pulseaudio-ctl alsa-utils"
 	LOGIN=""
 	FONTS=""
-	pacman -Sy --noconfirm $DEVELOPMENT $TERMINAL $LATEX $NETWORK $TOOLS $UTILITIES $INTEL $LOGIN $FONTS
+	pacman -Sy --noconfirm $DEVELOPMENT $TERMINAL $LATEX $NETWORK $TOOLS $UTILITIES $INTEL $AUDIO $LOGIN $FONTS
 	# Install Doom Emacs
-	git clone --depth 1 https://github.com/hlissner/doom-emacs ~/.emacs.d
-	~/.emacs.d/bin/doom install
+	#git clone --depth 1 https://github.com/hlissner/doom-emacs ~/.emacs.d
+	#~/.emacs.d/bin/doom install
 	
 	# Software AUR Programs and other community packages
 	cat > /tmp/aur_packages.sh <<- EOF
@@ -263,6 +245,35 @@ install_packages() {
 	# Other Programs
 	# community: discord steam-native
 	# aur: wpa_actiond spotify spotify-adblock-git steam-fonts tllocalmgr-git tbsm
+}
+
+configure_x11() {
+	# Install X11 stuff
+	pacman -S --noconfirm xorg xorg-server xorg-xinit
+	
+	# Add config details
+	cat >> ~/.xinitrc <<- EOF
+	/usr/bin/setxkbmap au
+	#/usr/bin/numlockx off
+	#/usr/bin/xautolock -time 20 -locker slock &
+	~/.fehbg
+	exec spectrwm
+	EOF
+}
+
+install_desktop_environment() {
+	# Install DE (spectrwm)
+	pacman -S --noconfirm spectrwm
+	echo "bar_font = xos4 Terminus:pixelsize=14" >> /.spectrwm.conf
+	mkdir -p ~/.config/spectrwm
+	
+	# Install program manager (rofi)
+	pacman -S --noconfirm rofi
+}
+
+configure_netctl() {
+	echo 'Enable systemctl wifi services'
+	systemctl enable net-auto-wired.service net-auto-wireless.service
 }
 
 #get_dot_files() {
