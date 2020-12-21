@@ -11,16 +11,8 @@
 set -ex # prints each line of sscript for debugging
 #set -e
 
-# Coloured text function declaration
-GREEN='\033[0;32m'
-#echo() {
-#    echo -e "{$GREEN}$1"
-#}
-
-# Temporarily line used for debugging
+# Debug line (halts on every line)
 #trap read debug
-
-# Functions
 
 install_arch() {
 	# Prompt user with inital warning
@@ -74,6 +66,9 @@ install_arch() {
 	# Generate fstab
 	echo 'Generating the fstab file'
 	genfstab -U /mnt >> /mnt/etc/fstab
+
+	# Enabling efivarfs
+	modprobe efivarfs
 	
 	# Enter chroot to continue install
 	echo 'Entering chroot to continue install'
@@ -105,7 +100,7 @@ configure_arch() {
 	echo "$HOSTNAME" >> /etc/hostname
 	echo "127.0.0.1	localhost\n::1		localhost\n127.0.1.1	$HOSTNAME.localdomain	$HOSTNAME" >> /etc/hosts
 	echo 'Installing zsh (needed for useradd)'
-	sudo pacman -S --noconfirm zsh
+	pacman -S --noconfirm zsh
 	echo 'Adding user'
 	useradd -m -s /bin/zsh -G adm,systemd-journal,wheel,rfkill,games,network,video,audio,optical,storage,scanner,power "$USERNAME"
 	echo 'Setting root password'
@@ -118,7 +113,8 @@ configure_arch() {
 	
 	echo 'Add multilib repository'
 	printf "[multilib]\nInclude = /etc/pacman.d/mirrorlist" >> /etc/pacman.conf
-	
+	pacman -Sy --noconfirm
+
 	echo 'Installing desktop environment'
 	install_de
 	
@@ -181,7 +177,6 @@ fix_mirrors() {
 	# Initate pacman keyring
 	pacman-key --init
 	pacman-key --populate archlinux
-	pacman-key --refresh-keys
 
 }
 
@@ -212,20 +207,18 @@ setup_partitions() {
 	# Enable swap
 	mkswap /dev/sda2
 	swapon /dev/sda2
-	
-	modprobe efivarfs
 }
 
 install_packages() {
 	# Core software from official Arch repository
-	DEVELOPMENT="gcc libstdc++5 boots-libs git code python atom"
+	DEVELOPMENT="gcc libstdc++5 boost-libs boost git code python atom"
 	TERMINAL="konsole exa ranger dictd xorg-xev playerctl xdotool screenfetch feh"
 	LATEX="texlive-core texlive-latexextra texlive-science pdftk"
 	NETWORK="netctl ifplugd dialog wireless_tools wpa_supplicant"
 	TOOLS="nano dolphin firefox termdown"
 	UTILITIES="playerctl flameshot feh cpupower vlc usbutils aspell-en openssh p7zip"
 	INTEL="intel-ucode"
-	AUDIO="pulseaudio-alsa pulseaudio-ctl alsa-utils"
+	AUDIO="pulseaudio-alsa pulseaudio pulseaudio-bluetooth pa applet alsa-utils"
 	LOGIN=""
 	FONTS=""
 	pacman -Sy --noconfirm $DEVELOPMENT $TERMINAL $LATEX $NETWORK $TOOLS $UTILITIES $INTEL $AUDIO $LOGIN $FONTS
