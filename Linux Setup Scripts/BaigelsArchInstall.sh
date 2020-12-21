@@ -55,57 +55,17 @@ install_arch() {
 	USERNAME='baigel'
 	PASSWORD='toor'
 
-	# Setup Logging
-	echo 'Enabling logging'
-	exec 1> >(tee "stdout.log")
-	exec 2> >(tee "stderr.log")
-
+	enable_logging
+	
 	# Update system clock
 	echo 'Update system clock'
 	timedatectl set-ntp true
 	
-	# Reorder mirror list
-	echo ' --- Initializing Mirror Lists and Keyrings --- '
-	echo 'Backing up mirrors list'
-	cp /etc/pacman.d/mirrorlist /etc/pacman.d/mirrorlist.backup
-	echo 'Recreating ordered mirror list'
-	reflector --latest 20 --protocol http --protocol https --sort rate --save /etc/pacman.d/mirrorlist
-	#reflector --latest 200 --protocol http --protocol https --sort rate --save /etc/pacman.d/mirrorlist
-
-	# Initate pacman keyring
-	echo 'Initialise and reload keys'
-	pacman-key --init
-	pacman-key --populate archlinux
-	#pacman-key --refresh-keys
-
+	fix_mirrors
+	
 	echo ' --- Setting Up Boot and Swap Partitions --- '
 
-	# Setup Partitioning
-	echo 'Partitioning the disk'
-	sfdisk /dev/sda <<- EOF
-	label: gpt
-	device: /dev/sda
-	unit: sectors
-
-	,512M,uefi
-	,2G,swap
-	;,home
-	EOF
-
-	# Format the partitions
-	echo 'Formatting partitions'
-	mkfs.fat -F32 /dev/sda1
-	mkfs.ext4 /dev/sda3
-
-	# Mounting partitions
-	echo 'Mounting partitions'
-	mount /dev/sda3 /mnt
-	mkdir -pv /mnt/efi
-	mount /dev/sda1 /mnt/efi
-	
-	# Enable swap
-	mkswap /dev/sda2
-	swapon /dev/sda2
+	setup_partitions
 
 	# Install important packages using pacstrap
 	echo ' --- Installing Base --- '
@@ -115,9 +75,6 @@ install_arch() {
 	echo 'Generating the fstab file'
 	genfstab -U /mnt >> /mnt/etc/fstab
 	
-	# Enable efivarfs
-	modprobe efivarfs
-	
 	# Enter chroot to continue install
 	echo 'Entering chroot to continue install'
 	cp $0 /mnt/arch_install.sh
@@ -125,7 +82,6 @@ install_arch() {
 }
 
 configure_arch() {
-
 
 	# testing
 	HOSTNAME='baigel-vm'
@@ -148,10 +104,10 @@ configure_arch() {
 	echo 'Setting hostname and configuring network'
 	echo "$HOSTNAME" >> /etc/hostname
 	echo "127.0.0.1	localhost\n::1		localhost\n127.0.1.1	$HOSTNAME.localdomain	$HOSTNAME" >> /etc/hosts
-	#echo 'Installing zsh (needed for useradd)'
-	#sudo pacman -S zsh
+	echo 'Installing zsh (needed for useradd)'
+	sudo pacman -S --noconfirm zsh
 	echo 'Adding user'
-	useradd -m -s /bin/bash -G adm,systemd-journal,wheel,rfkill,games,network,video,audio,optical,storage,scanner,power "$USERNAME"
+	useradd -m -s /bin/zsh -G adm,systemd-journal,wheel,rfkill,games,network,video,audio,optical,storage,scanner,power "$USERNAME"
 	echo 'Setting root password'
 	echo -en "$PASSWORD\n$PASSWORD" | passwd
 	echo 'Setting user password'
@@ -162,8 +118,16 @@ configure_arch() {
 	
 	echo 'Add multilib repository'
 	printf "[multilib]\nInclude = /etc/pacman.d/mirrorlist" >> /etc/pacman.conf
+	
+	echo 'Installing desktop environment'
+	install_de
+	
+	echo 'Configuring X11'
+	configure_x11
+	
 	echo 'Installing programs'
 	install_packages
+	
 	echo 'Setting up microde'
 	echo 'microcode' > /etc/modules-load.d/intel-ucode.conf
 	echo 'Enable systemctl services'
@@ -201,13 +165,64 @@ configure_arch() {
 
 # Functions
 
+enable_logging() {
+	echo 'Enabling logging'
+	exec 1> >(tee "stdout.log")
+	exec 2> >(tee "stderr.log")
+}
+
+fix_mirrors() {
+	# Backing up mirrors list
+	cp /etc/pacman.d/mirrorlist /etc/pacman.d/mirrorlist.backup
+	# Recreating ordered mirror list
+	reflector --latest 20 --protocol http --protocol https --sort rate --save /etc/pacman.d/mirrorlist
+	#reflector --latest 200 --protocol http --protocol https --sort rate --save /etc/pacman.d/mirrorlist
+
+	# Initate pacman keyring
+	pacman-key --init
+	pacman-key --populate archlinux
+	pacman-key --refresh-keys
+
+}
+
+setup_partitions() {
+	# Setup Partitioning
+	echo 'Partitioning the disk'
+	sfdisk /dev/sda <<- EOF
+	label: gpt
+	device: /dev/sda
+	unit: sectors
+
+	,512M,uefi
+	,2G,swap
+	;,home
+	EOF
+
+	# Format the partitions
+	echo 'Formatting partitions'
+	mkfs.fat -F32 /dev/sda1
+	mkfs.ext4 /dev/sda3
+
+	# Mounting partitions
+	echo 'Mounting partitions'
+	mount /dev/sda3 /mnt
+	mkdir -pv /mnt/efi
+	mount /dev/sda1 /mnt/efi
+	
+	# Enable swap
+	mkswap /dev/sda2
+	swapon /dev/sda2
+	
+	modprobe efivarfs
+}
+
 install_packages() {
 	# Core software from official Arch repository
-	DEVELOPMENT="gcc libstdc++5 git code python atom"
+	DEVELOPMENT="gcc libstdc++5 boots-libs git code python atom"
 	TERMINAL="konsole exa ranger dictd xorg-xev playerctl xdotool screenfetch feh"
 	LATEX="texlive-core texlive-latexextra texlive-science pdftk"
 	NETWORK="netctl ifplugd dialog wireless_tools wpa_supplicant"
-	TOOLS="nano dolphin firefox"
+	TOOLS="nano dolphin firefox termdown"
 	UTILITIES="playerctl flameshot feh cpupower vlc usbutils aspell-en openssh p7zip"
 	INTEL="intel-ucode"
 	AUDIO="pulseaudio-alsa pulseaudio-ctl alsa-utils"
@@ -261,7 +276,7 @@ configure_x11() {
 	EOF
 }
 
-install_desktop_environment() {
+install_de() {
 	# Install DE (spectrwm)
 	pacman -S --noconfirm spectrwm
 	echo "bar_font = xos4 Terminus:pixelsize=14" >> /.spectrwm.conf
