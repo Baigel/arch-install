@@ -61,14 +61,14 @@ install_arch() {
 
 	# Install important packages using pacstrap
 	echo ' --- Installing Base --- '
-	pacstrap /mnt base linux linux-firmware
+	pacstrap /mnt base base-devel linux linux-firmware
 
 	# Generate fstab
 	echo 'Generating the fstab file'
 	genfstab -U /mnt >> /mnt/etc/fstab
 
 	# Enabling efivarfs
-	modprobe efivarfs
+	#modprobe efivarfs
 	
 	# Enter chroot to continue install
 	echo 'Entering chroot to continue install'
@@ -95,20 +95,18 @@ configure_arch() {
 	echo 'LANG=en_US.UTF-8' >> /etc/locale.conf
 	locale-gen
 	echo 'Set keymap'
-	echo 'KEYMAP=de-latin1' >> /etc/vconsole.conf
+	echo 'KEYMAP=us' >> /etc/vconsole.conf
 	echo 'Setting hostname and configuring network'
 	echo "$HOSTNAME" >> /etc/hostname
 	echo "127.0.0.1	localhost\n::1		localhost\n127.0.1.1	$HOSTNAME.localdomain	$HOSTNAME" >> /etc/hosts
-	echo 'Installing zsh (needed for useradd)'
-	pacman -S --noconfirm zsh
 	echo 'Adding user'
-	useradd -m -s /bin/zsh -G adm,systemd-journal,wheel,rfkill,games,network,video,audio,optical,storage,scanner,power "$USERNAME"
+	useradd -m -s /bin/bash -G adm,systemd-journal,wheel,rfkill,games,network,video,audio,optical,storage,scanner,power "$USERNAME"
 	echo 'Setting root password'
 	echo -en "$PASSWORD\n$PASSWORD" | passwd
 	echo 'Setting user password'
 	echo -en "$PASSWORD\n$PASSWORD" | passwd $USERNAME
 	echo 'Adding root and user as sudoers'
-	echo "$USERNAME ALL=(ALL) ALL" >> /etc/sudoers
+	printf "root ALL=(ALL) ALL\n$USERNAME ALL=(ALL) ALL" > /etc/sudoers
 	chmod 440 /etc/sudoers
 	
 	echo 'Add multilib repository'
@@ -171,8 +169,7 @@ fix_mirrors() {
 	# Backing up mirrors list
 	cp /etc/pacman.d/mirrorlist /etc/pacman.d/mirrorlist.backup
 	# Recreating ordered mirror list
-	reflector --latest 20 --protocol http --protocol https --sort rate --save /etc/pacman.d/mirrorlist
-	#reflector --latest 200 --protocol http --protocol https --sort rate --save /etc/pacman.d/mirrorlist
+	reflector --latest 200 --protocol http --protocol https --sort rate --save /etc/pacman.d/mirrorlist
 
 	# Initate pacman keyring
 	pacman-key --init
@@ -207,34 +204,35 @@ setup_partitions() {
 	# Enable swap
 	mkswap /dev/sda2
 	swapon /dev/sda2
+
+	# Enabling efivarfs
+	modprobe efivarfs
+
 }
 
 install_packages() {
-	# Core software from official Arch repository
+	# Core software from official Arch repositories
 	DEVELOPMENT="gcc libstdc++5 boost-libs boost git code python atom"
-	TERMINAL="konsole exa ranger dictd xorg-xev playerctl xdotool screenfetch feh"
+	TERMINAL="konsole exa ranger dictd xorg-xev xdotool screenfetch feh xterm"
 	LATEX="texlive-core texlive-latexextra texlive-science pdftk"
 	NETWORK="netctl ifplugd dialog wireless_tools wpa_supplicant"
 	TOOLS="nano dolphin firefox termdown"
 	UTILITIES="playerctl flameshot feh cpupower vlc usbutils aspell-en openssh p7zip"
 	INTEL="intel-ucode"
-	AUDIO="pulseaudio-alsa pulseaudio pulseaudio-bluetooth pa applet alsa-utils"
+	AUDIO="pulseaudio-alsa pulseaudio pulseaudio-bluetooth pasystray alsa-utils playerctl"
 	LOGIN=""
 	FONTS=""
 	pacman -Sy --noconfirm $DEVELOPMENT $TERMINAL $LATEX $NETWORK $TOOLS $UTILITIES $INTEL $AUDIO $LOGIN $FONTS
+	
 	# Install Doom Emacs
 	#git clone --depth 1 https://github.com/hlissner/doom-emacs ~/.emacs.d
 	#~/.emacs.d/bin/doom install
 	
 	# Software AUR Programs and other community packages
-	cat > /tmp/aur_packages.sh <<- EOF
 	#!/bin/bash
-	AURPrograms=( github-desktop-git scrcpy yay wpa_actiond wpa_supplicant_gui spotify spotify-adblock-git steam-fonts tllocalmgr-git )
-	# Prompt user for what programs to install
-	installPackages=""
-	for i in "${AURPrograms[@]}"
-		installPackages+="$i "
-	done
+	# Other software: github-desktop-git scrcpy
+	AURPrograms=( yay wpa_actiond wpa_supplicant_gui spotify spotify-adblock-git steam-fonts tllocalmgr-git )
+	su -l $USERNAME
 	cd ~
 	mkdir -p aur-programs
 	cd aur-programs
@@ -242,13 +240,12 @@ install_packages() {
 		do
 		git clone "https://aur.archlinux.org/"$i".git"
 		cd $i
-		makepkg -si --noconfirm --asroot $i
+		makepkg -si --noconfirm $i
 		cd ..
 	done
 	cd
 	rm -rf ~/aur-programs
-	EOF
-	
+	exit
 	
 	# Other Programs
 	# community: discord steam-native
@@ -261,7 +258,7 @@ configure_x11() {
 	
 	# Add config details
 	cat >> ~/.xinitrc <<- EOF
-	/usr/bin/setxkbmap au
+	/usr/bin/setxkbmap us
 	#/usr/bin/numlockx off
 	#/usr/bin/xautolock -time 20 -locker slock &
 	~/.fehbg
@@ -272,6 +269,8 @@ configure_x11() {
 install_de() {
 	# Install DE (spectrwm)
 	pacman -S --noconfirm spectrwm
+	pacman -S --noconfirm sddm
+	systemctl enable sddm.service
 	echo "bar_font = xos4 Terminus:pixelsize=14" >> /.spectrwm.conf
 	mkdir -p ~/.config/spectrwm
 	
