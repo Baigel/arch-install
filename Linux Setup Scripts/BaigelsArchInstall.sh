@@ -67,9 +67,6 @@ install_arch() {
 	echo 'Generating the fstab file'
 	genfstab -U /mnt >> /mnt/etc/fstab
 
-	# Enabling efivarfs
-	#modprobe efivarfs
-	
 	# Enter chroot to continue install
 	echo 'Entering chroot to continue install'
 	cp $0 /mnt/arch_install.sh
@@ -231,21 +228,35 @@ install_packages() {
 	# Software AUR Programs and other community packages
 	#!/bin/bash
 	# Other software: github-desktop-git scrcpy
-	AURPrograms=( yay wpa_actiond wpa_supplicant_gui spotify spotify-adblock-git steam-fonts tllocalmgr-git )
-	su -l $USERNAME
+	su -s /bin/bash -l $USERNAME
+	cat > ~/aur_install.sh <<- EOF
 	cd ~
 	mkdir -p aur-programs
 	cd aur-programs
-	for i in "${installPackages[@]}"
+	HI="hello"
+	echo "hi $HI"
+	AURPrograms=( yay wpa_actiond wpa_supplicant_gui spotify spotify-adblock-git steam-fonts tllocalmgr-git )
+	echo "${AURPrograms}"
+	for i in "${AURPrograms[@]}"
 		do
-		git clone "https://aur.archlinux.org/"$i".git"
+		echo "Package: $i"
+		{
+		git clone "https://aur.archlinux.org/$i.git"
 		cd $i
 		makepkg -si --noconfirm $i
 		cd ..
+		} || echo "Package $i not found!"
 	done
 	cd
 	rm -rf ~/aur-programs
-	exit
+	EOF
+	chmod +x ~/aur_install.sh
+	su -l $USERNAME <<- EOF
+	set -ex
+	echo "1"
+	~/aur_install.sh
+	echo "2"
+	EOF
 	
 	# Other Programs
 	# community: discord steam-native
