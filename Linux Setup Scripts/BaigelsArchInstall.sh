@@ -211,7 +211,7 @@ setup_partitions() {
 install_packages() {
 	# Core software from official Arch repositories
 	DEVELOPMENT="git gcc libstdc++5 boost-libs boost git code python atom"
-	TERMINAL="konsole exa ranger dictd xorg-xev xdotool screenfetch feh xterm"
+	TERMINAL="konsole exa ranger dictd xorg-xev xdotool screenfetch feh"
 	LATEX="texlive-core texlive-latexextra texlive-science pdftk"
 	NETWORK="netctl ifplugd dialog wireless_tools wpa_supplicant"
 	GUI_TOOLS="nano dolphin firefox flameshot vlc"
@@ -227,38 +227,31 @@ install_packages() {
 	#~/.emacs.d/bin/doom install
 	
 	# Software AUR Programs and other community packages
-	# Other software: github-desktop-git scrcpy yay wpa_actiond wpa_supplicant_gui spotify spotify-adblock-git steam-fonts tllocalmgr-git
+	# Other software: github-desktop-git scrcpy yay wpa_actiond wpa_supplicant_gui
+					# spotify spotify-adblock-git steam-fonts tllocalmgr-git discord steam-native
 
-	sudo pacman -S --noconfirm yajl fakeroot pkg-config
+	#cat > /aur_install.sh <<- EOF
+	#cd ~
+	#mkdir -p aur-programs
+	#cd aur-programs
+	#AURPrograms=( yay wpa_actiond wpa_supplicant_gui spotify spotify-adblock-git steam-fonts tllocalmgr-git )
+	#echo "\${AURPrograms}"
+	#for i in "\${AURPrograms[@]}"
+	#	do
+	#	echo "Package: \$i"
+	#	{
+	#	git clone "https://aur.archlinux.org/\$i.git"
+	#	cd \$i
+	#	makepkg -si --noconfirm \$i
+	#	cd ..
+	#	} || echo "Package \$i not found!"
+	#done
+	#cd
+	#rm -rf ~/aur-programs
+	#EOF
+	#chmod +x /aur_install.sh
+	#su -s /bin/bash -l $USERNAME -c "/aur_install.sh"
 
-
-	cat > /aur_install.sh <<- EOF
-	cd ~
-	mkdir -p aur-programs
-	cd aur-programs
-	HI="hello"
-	echo "hi \$HI"
-	AURPrograms=( yay wpa_actiond wpa_supplicant_gui spotify spotify-adblock-git steam-fonts tllocalmgr-git )
-	echo "\${AURPrograms}"
-	for i in "\${AURPrograms[@]}"
-		do
-		echo "Package: \$i"
-		{
-		git clone "https://aur.archlinux.org/\$i.git"
-		cd \$i
-		makepkg -si --noconfirm \$i
-		cd ..
-		} || echo "Package \$i not found!"
-	done
-	cd
-	rm -rf ~/aur-programs
-	EOF
-	chmod +x /aur_install.sh
-	su -s /bin/bash -l $USERNAME -c "/aur_install.sh"
-	echo "finished aur stuff"
-	# Other Programs
-	# community: discord steam-native
-	# aur: wpa_actiond spotify spotify-adblock-git steam-fonts tllocalmgr-git tbsm
 }
 
 configure_x11() {
@@ -283,8 +276,12 @@ install_de() {
 	echo "bar_font = xos4 Terminus:pixelsize=14" >> /.spectrwm.conf
 	mkdir -p ~/.config/spectrwm
 	
+	# Spectrwm dependencies (temporary until custom config implemented)
+	pacman -S --noconfirm xlock xterm
+
 	# Install program manager (rofi)
 	pacman -S --noconfirm rofi
+
 }
 
 configure_netctl() {
