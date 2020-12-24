@@ -166,7 +166,8 @@ fix_mirrors() {
 	# Backing up mirrors list
 	cp /etc/pacman.d/mirrorlist /etc/pacman.d/mirrorlist.backup
 	# Recreating ordered mirror list
-	reflector --latest 200 --protocol http --protocol https --sort rate --save /etc/pacman.d/mirrorlist
+	reflector --latest 5 --protocol http --protocol https --sort rate --save /etc/pacman.d/mirrorlist
+	#reflector --latest 200 --protocol http --protocol https --sort rate --save /etc/pacman.d/mirrorlist
 
 	# Initate pacman keyring
 	pacman-key --init
@@ -209,55 +210,52 @@ setup_partitions() {
 
 install_packages() {
 	# Core software from official Arch repositories
-	DEVELOPMENT="gcc libstdc++5 boost-libs boost git code python atom"
+	DEVELOPMENT="git gcc libstdc++5 boost-libs boost git code python atom"
 	TERMINAL="konsole exa ranger dictd xorg-xev xdotool screenfetch feh xterm"
 	LATEX="texlive-core texlive-latexextra texlive-science pdftk"
 	NETWORK="netctl ifplugd dialog wireless_tools wpa_supplicant"
-	TOOLS="nano dolphin firefox termdown"
-	UTILITIES="playerctl flameshot feh cpupower vlc usbutils aspell-en openssh p7zip"
+	GUI_TOOLS="nano dolphin firefox flameshot vlc"
+	CLI_TOOLS="packer playerctl feh termdown cpupower usbutils aspell-en openssh p7zip"
 	INTEL="intel-ucode"
 	AUDIO="pulseaudio-alsa pulseaudio pulseaudio-bluetooth pasystray alsa-utils playerctl"
 	LOGIN=""
 	FONTS=""
-	pacman -Sy --noconfirm $DEVELOPMENT $TERMINAL $LATEX $NETWORK $TOOLS $UTILITIES $INTEL $AUDIO $LOGIN $FONTS
+	pacman -Sy --noconfirm $DEVELOPMENT $TERMINAL $LATEX $NETWORK $GUI_TOOLS $CLI_TOOLS $INTEL $AUDIO $LOGIN $FONTS
 	
 	# Install Doom Emacs
 	#git clone --depth 1 https://github.com/hlissner/doom-emacs ~/.emacs.d
 	#~/.emacs.d/bin/doom install
 	
 	# Software AUR Programs and other community packages
-	#!/bin/bash
-	# Other software: github-desktop-git scrcpy
-	su -s /bin/bash -l $USERNAME
-	cat > ~/aur_install.sh <<- EOF
+	# Other software: github-desktop-git scrcpy yay wpa_actiond wpa_supplicant_gui spotify spotify-adblock-git steam-fonts tllocalmgr-git
+
+	sudo pacman -S --noconfirm yajl fakeroot pkg-config
+
+
+	cat > /aur_install.sh <<- EOF
 	cd ~
 	mkdir -p aur-programs
 	cd aur-programs
 	HI="hello"
-	echo "hi $HI"
+	echo "hi \$HI"
 	AURPrograms=( yay wpa_actiond wpa_supplicant_gui spotify spotify-adblock-git steam-fonts tllocalmgr-git )
-	echo "${AURPrograms}"
-	for i in "${AURPrograms[@]}"
+	echo "\${AURPrograms}"
+	for i in "\${AURPrograms[@]}"
 		do
-		echo "Package: $i"
+		echo "Package: \$i"
 		{
-		git clone "https://aur.archlinux.org/$i.git"
-		cd $i
-		makepkg -si --noconfirm $i
+		git clone "https://aur.archlinux.org/\$i.git"
+		cd \$i
+		makepkg -si --noconfirm \$i
 		cd ..
-		} || echo "Package $i not found!"
+		} || echo "Package \$i not found!"
 	done
 	cd
 	rm -rf ~/aur-programs
 	EOF
-	chmod +x ~/aur_install.sh
-	su -l $USERNAME <<- EOF
-	set -ex
-	echo "1"
-	~/aur_install.sh
-	echo "2"
-	EOF
-	
+	chmod +x /aur_install.sh
+	su -s /bin/bash -l $USERNAME -c "/aur_install.sh"
+	echo "finished aur stuff"
 	# Other Programs
 	# community: discord steam-native
 	# aur: wpa_actiond spotify spotify-adblock-git steam-fonts tllocalmgr-git tbsm
