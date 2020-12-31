@@ -213,7 +213,7 @@ install_packages() {
 	DEVELOPMENT="git gcc libstdc++5 boost-libs boost git code python atom"
 	TERMINAL="konsole exa ranger dictd xorg-xev xdotool screenfetch feh"
 	LATEX="texlive-core texlive-latexextra texlive-science pdftk"
-	NETWORK="netctl ifplugd dialog wireless_tools wpa_supplicant"
+	NETWORK="dhcpcd netctl ifplugd dialog wireless_tools wpa_supplicant"
 	GUI_TOOLS="nano dolphin firefox flameshot vlc"
 	CLI_TOOLS="packer playerctl feh termdown cpupower usbutils aspell-en openssh p7zip"
 	INTEL="intel-ucode"
@@ -277,7 +277,7 @@ install_de() {
 	mkdir -p ~/.config/spectrwm
 	
 	# Spectrwm dependencies (temporary until custom config implemented)
-	pacman -S --noconfirm xlock xterm
+	pacman -S --noconfirm xlockmore xterm
 
 	# Install program manager (rofi)
 	pacman -S --noconfirm rofi
