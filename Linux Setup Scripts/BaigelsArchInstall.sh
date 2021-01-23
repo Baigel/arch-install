@@ -5,7 +5,7 @@
 
 # Basic Overview
 # Internet connection Required ("ip link" for interface name; "wifi-menu -o [interfaceName]" to connect)
-# Desktop Environment:	
+# Desktop Environment:
 # Window Manager:	Spectrwm
 
 set -ex # prints each line of sscript for debugging
@@ -18,7 +18,7 @@ install_arch() {
 	# Prompt user with inital warning
 	echo 'WARNING: THIS SCRIPT WILL BLINDLY WIPE THE DISK!'
 	echo 'Press Enter to continue...'
-	read -s
+	read -sr
 
 	echo ' -- Starting Setup --- '
 
@@ -26,6 +26,17 @@ install_arch() {
 	DRIVE='/dev/sda'
 	TIMEZONE='Australia/Brisbane'
 	KEYMAP='us'
+
+	# Prompt for BIOS or UEFI
+	#echo "Install UEFI (with GPT) or BIOS (with MBR)?"
+	#echo "1: UEFI"
+	#echo "2: BIOS"
+	#read BOOTLOADER
+	#if [[ $BOOTLOADER -ne 1 && $BOOTLOADER -ne 2 ]]
+	#then
+	#	echo "Error: Bootloader not valid; exiting now."
+	#	exit 1
+	#fi
 
 	# Get hostname and username
 	#echo 'Enter username'
@@ -40,24 +51,26 @@ install_arch() {
 	#echo -n "Repeat Password: "
 	#read -s PASSWORD2
 	#echo
-	#[[ "$PASSWORD" == "$PASSWORD2" ]] || ( echo "Passwords did not match; exiting now."; exit 1; )
+	#[[ "$PASSWORD" == "$PASSWORD2" ]] || ( echo "Error: Passwords did not match; exiting now."; exit 1; )
 
 	# testing
+	BOOTLOADER=2
+	SWAP="2G"
 	HOSTNAME='baigel-vm'
 	USERNAME='baigel'
 	PASSWORD='toor'
 
 	enable_logging
-	
+
 	# Update system clock
 	echo 'Update system clock'
 	timedatectl set-ntp true
-	
+
 	fix_mirrors
-	
+
 	echo ' --- Setting Up Boot and Swap Partitions --- '
 
-	setup_partitions
+	setup_partitions $BOOTLOADER
 
 	# Install important packages using pacstrap
 	echo ' --- Installing Base --- '
@@ -69,13 +82,14 @@ install_arch() {
 
 	# Enter chroot to continue install
 	echo 'Entering chroot to continue install'
-	cp $0 /mnt/arch_install.sh
+	cp "$0" /mnt/arch_install.sh
 	arch-chroot /mnt ./arch_install.sh chroot
 }
 
 configure_arch() {
 
 	# testing
+	BOOTLOADER=2
 	HOSTNAME='baigel-vm'
 	USERNAME='baigel'
 	PASSWORD='toor'
@@ -95,7 +109,7 @@ configure_arch() {
 	echo 'KEYMAP=us' >> /etc/vconsole.conf
 	echo 'Setting hostname and configuring network'
 	echo "$HOSTNAME" >> /etc/hostname
-	echo "127.0.0.1	localhost\n::1		localhost\n127.0.1.1	$HOSTNAME.localdomain	$HOSTNAME" >> /etc/hosts
+	printf "127.0.0.1	localhost\n::1		localhost\n127.0.1.1	%s.localdomain	%s" $HOSTNAME $HOSTNAME >> /etc/hosts
 	echo 'Adding user'
 	useradd -m -s /bin/bash -G adm,systemd-journal,wheel,rfkill,games,network,video,audio,optical,storage,scanner,power "$USERNAME"
 	echo 'Setting root password'
@@ -103,22 +117,22 @@ configure_arch() {
 	echo 'Setting user password'
 	echo -en "$PASSWORD\n$PASSWORD" | passwd $USERNAME
 	echo 'Adding root and user as sudoers'
-	printf "root ALL=(ALL) ALL\n$USERNAME ALL=(ALL) ALL" > /etc/sudoers
+	printf "root ALL=(ALL) ALL\n%s ALL=(ALL) ALL" $USERNAME > /etc/sudoers
 	chmod 440 /etc/sudoers
-	
+
 	echo 'Add multilib repository'
 	printf "[multilib]\nInclude = /etc/pacman.d/mirrorlist" >> /etc/pacman.conf
 	pacman -Sy --noconfirm
 
 	echo 'Installing desktop environment'
 	install_de
-	
+
 	echo 'Configuring X11'
 	configure_x11
-	
+
 	echo 'Installing programs'
 	install_packages
-	
+
 	echo 'Setting up microde'
 	echo 'microcode' > /etc/modules-load.d/intel-ucode.conf
 	echo 'Enable systemctl services'
@@ -129,8 +143,10 @@ configure_arch() {
 	#systemctl enable dhcpcd
 
 	echo ' --- Installing Bootloader (grub) --- '
-	pacman -S --noconfirm grub os-prober efibootmgr
-	grub-install --recheck --target=x86_64-efi --efi-directory=/efi --bootloader-id=GRUB /dev/sda
+	pacman -S --noconfirm grub os-prober
+	[[ $BOOTLOADER -eq 1 ]] && ( sudo pacman -S --noconfirm efibootmgr )
+	[[ $BOOTLOADER -eq 1 ]] && ( grub-install --recheck --target=x86_64-efi --efi-directory=/efi --bootloader-id=GRUB /dev/sda )
+	[[ $BOOTLOADER -eq 2 ]] && ( grub-install --recheck --bootloader-id=GRUB /dev/sda )
 	grub-mkconfig -o /boot/grub/grub.cfg
 	echo 'Exiting'
 	exit
@@ -176,36 +192,66 @@ fix_mirrors() {
 }
 
 setup_partitions() {
-	# Setup Partitioning
-	echo 'Partitioning the disk'
-	sfdisk /dev/sda <<- EOF
-	label: gpt
-	device: /dev/sda
-	unit: sectors
+	# $1 is BOOTLOADER (1 is UEFI and 2 is BIOS)
+	if [[ $1 -eq 1 ]]
+	then
+		# Setup Partitioning
+		echo 'Partitioning the disk'
+		sfdisk /dev/sda <<- EOF
+		label: gpt
+		device: /dev/sda
+		unit: sectors
 
-	,512M,uefi
-	,2G,swap
-	;,home
-	EOF
+		,512M,uefi
+		,2G,swap
+		;,home
+		EOF
 
-	# Format the partitions
-	echo 'Formatting partitions'
-	mkfs.fat -F32 /dev/sda1
-	mkfs.ext4 /dev/sda3
+		# Format the partitions
+		echo 'Formatting partitions'
+		mkfs.fat -F32 /dev/sda1
+		mkfs.ext4 /dev/sda3
 
-	# Mounting partitions
-	echo 'Mounting partitions'
-	mount /dev/sda3 /mnt
-	mkdir -pv /mnt/efi
-	mount /dev/sda1 /mnt/efi
-	
-	# Enable swap
-	mkswap /dev/sda2
-	swapon /dev/sda2
+		# Mounting partitions
+		echo 'Mounting partitions'
+		mount /dev/sda3 /mnt
+		mkdir -pv /mnt/efi
+		mount /dev/sda1 /mnt/efi
 
-	# Enabling efivarfs
-	modprobe efivarfs
+		# Enable swap
+		mkswap /dev/sda2
+		swapon /dev/sda2
 
+		# Enabling efivarfs
+		modprobe efivarfs
+
+	elif [[ $1 -eq 2 ]]
+	then
+		# Setup Partitioning
+		echo 'Partitioning the disk'
+		sfdisk /dev/sda <<- EOF
+		label: mbr
+		device: /dev/sda
+		unit: sectors
+
+		,2G,swap
+		;,linux
+		EOF
+
+		# Format the partitions
+		echo 'Formatting partitions'
+		mkfs.ext4 /dev/sda2
+
+		# Mounting partitions
+		echo 'Mounting partitions'
+		mount /dev/sda2 /mnt
+		mkdir -pv /mnt/boot
+
+		# Enable swap
+		mkswap /dev/sda1
+		swapon /dev/sda1
+
+	fi
 }
 
 install_packages() {
@@ -221,11 +267,11 @@ install_packages() {
 	LOGIN=""
 	FONTS=""
 	pacman -Sy --noconfirm $DEVELOPMENT $TERMINAL $LATEX $NETWORK $GUI_TOOLS $CLI_TOOLS $INTEL $AUDIO $LOGIN $FONTS
-	
+
 	# Install Doom Emacs
 	#git clone --depth 1 https://github.com/hlissner/doom-emacs ~/.emacs.d
 	#~/.emacs.d/bin/doom install
-	
+
 	# Software AUR Programs and other community packages
 	# Other software: github-desktop-git scrcpy yay wpa_actiond wpa_supplicant_gui
 					# spotify spotify-adblock-git steam-fonts tllocalmgr-git discord steam-native
@@ -257,7 +303,7 @@ install_packages() {
 configure_x11() {
 	# Install X11 stuff
 	pacman -S --noconfirm xorg xorg-server xorg-xinit
-	
+
 	# Add config details
 	cat >> ~/.xinitrc <<- EOF
 	/usr/bin/setxkbmap us
@@ -275,7 +321,7 @@ install_de() {
 	systemctl enable sddm.service
 	echo "bar_font = xos4 Terminus:pixelsize=14" >> /.spectrwm.conf
 	mkdir -p ~/.config/spectrwm
-	
+
 	# Spectrwm dependencies (temporary until custom config implemented)
 	pacman -S --noconfirm xlockmore xterm
 
@@ -289,7 +335,7 @@ configure_netctl() {
 	systemctl enable net-auto-wired.service net-auto-wireless.service
 }
 
-#get_dot_files() {
+get_dot_files() {
 	# Replace config files with config files from github
 	# Awesome config
 	#git clone
@@ -297,14 +343,11 @@ configure_netctl() {
 	#git clone
 	# Flameshot config file
 	#git clone
-#}
-
+}
 
 # Jump to chroot part of the install, if that part has been reached
-if [ $1 = "chroot" ] ; then
+if [ "$1" = "chroot" ] ; then
 	configure_arch
 else
 	install_arch
 fi
-
-
