@@ -15,50 +15,16 @@ set -ex # prints each line of sscript for debugging
 #trap read debug
 
 install_arch() {
+
+	BOOTLOADER=$1
+	SWAP=$2
+
 	# Prompt user with inital warning
 	echo 'WARNING: THIS SCRIPT WILL BLINDLY WIPE THE DISK!'
 	echo 'Press Enter to continue...'
 	read -sr
 
 	echo ' -- Starting Setup --- '
-
-	# System Details
-	DRIVE='/dev/sda'
-	TIMEZONE='Australia/Brisbane'
-	KEYMAP='us'
-
-	# Prompt for BIOS or UEFI
-	#echo "Install UEFI (with GPT) or BIOS (with MBR)?"
-	#echo "1: UEFI"
-	#echo "2: BIOS"
-	#read BOOTLOADER
-	#if [[ $BOOTLOADER -ne 1 && $BOOTLOADER -ne 2 ]]
-	#then
-	#	echo "Error: Bootloader not valid; exiting now."
-	#	exit 1
-	#fi
-
-	# Get hostname and username
-	#echo 'Enter username'
-	#read USERNAME
-	#echo 'Enter hostname: '
-	#read HOSTNAME
-
-	# Get Password
-	#echo -n "Password: "
-	#read -s PASSWORD
-	#echo
-	#echo -n "Repeat Password: "
-	#read -s PASSWORD2
-	#echo
-	#[[ "$PASSWORD" == "$PASSWORD2" ]] || ( echo "Error: Passwords did not match; exiting now."; exit 1; )
-
-	# testing
-	BOOTLOADER=2
-	SWAP="2G"
-	HOSTNAME='baigel-vm'
-	USERNAME='baigel'
-	PASSWORD='toor'
 
 	enable_logging
 
@@ -70,7 +36,7 @@ install_arch() {
 
 	echo ' --- Setting Up Boot and Swap Partitions --- '
 
-	setup_partitions $BOOTLOADER
+	setup_partitions $BOOTLOADER $SWAP
 
 	# Install important packages using pacstrap
 	echo ' --- Installing Base --- '
@@ -88,17 +54,19 @@ install_arch() {
 
 configure_arch() {
 
-	# testing
-	BOOTLOADER=2
-	HOSTNAME='baigel-vm'
-	USERNAME='baigel'
-	PASSWORD='toor'
+	DRIVE=$1
+	TIMEZONE=$2
+	KEYMAP=$3
+	HOSTNAME=$4
+	USERNAME=$5
+	PASSWORD=$6
+	BOOTLOADER=$7
 
 	echo 'Continuing setup in chroot'
 
 	# Chroot specific setup
 	echo 'Setting timezone'
-	ln -sf /usr/share/zoneinfo/Australia/Brisbane /etc/localtime
+	ln -sf /usr/share/zoneinfo/$TIMEZONE /etc/localtime
 	echo 'Generating /etc/adjtime'
 	hwclock --systohc
 	echo 'Setting localization'
@@ -106,7 +74,7 @@ configure_arch() {
 	echo 'LANG=en_US.UTF-8' >> /etc/locale.conf
 	locale-gen
 	echo 'Set keymap'
-	echo 'KEYMAP=us' >> /etc/vconsole.conf
+	echo "KEYMAP=$KEYMAP" >> /etc/vconsole.conf
 	echo 'Setting hostname and configuring network'
 	echo "$HOSTNAME" >> /etc/hostname
 	printf "127.0.0.1	localhost\n::1		localhost\n127.0.1.1	%s.localdomain	%s" $HOSTNAME $HOSTNAME >> /etc/hosts
@@ -133,6 +101,9 @@ configure_arch() {
 	echo 'Installing programs'
 	install_packages
 
+	echo 'Getting dot files'
+	get_dot_files
+
 	echo 'Setting up microde'
 	echo 'microcode' > /etc/modules-load.d/intel-ucode.conf
 	echo 'Enable systemctl services'
@@ -145,19 +116,13 @@ configure_arch() {
 	echo ' --- Installing Bootloader (grub) --- '
 	pacman -S --noconfirm grub os-prober
 	[[ $BOOTLOADER -eq 1 ]] && ( sudo pacman -S --noconfirm efibootmgr )
-	[[ $BOOTLOADER -eq 1 ]] && ( grub-install --recheck --target=x86_64-efi --efi-directory=/efi --bootloader-id=GRUB /dev/sda )
-	[[ $BOOTLOADER -eq 2 ]] && ( grub-install --recheck --bootloader-id=GRUB /dev/sda )
+	[[ $BOOTLOADER -eq 1 ]] && ( grub-install --recheck --target=x86_64-efi --efi-directory=/efi --bootloader-id=GRUB $DRIVE )
+	[[ $BOOTLOADER -eq 2 ]] && ( grub-install --recheck --bootloader-id=GRUB $DRIVE )
 	grub-mkconfig -o /boot/grub/grub.cfg
 	echo 'Exiting'
 	exit
 	umount -R /mnt
 	echo ' --- Install Finished --- '
-
-	# System Update
-	#pacman -Syyu --noconfirm??
-
-	# Fix rofi font issue (?)
-	# Download https://gitlab.manjaro.org/profiles-and-settings/desktop-settings/blob/master/community/bspwm/skel/.config/rofi/config.rasi and place into ~/.config/rofi
 
 	# Set Wallpaper
 	#git clone
@@ -192,35 +157,39 @@ fix_mirrors() {
 }
 
 setup_partitions() {
+
+	BOOTLOADER=$1
+	SWAP=$2
+
 	# $1 is BOOTLOADER (1 is UEFI and 2 is BIOS)
 	if [[ $1 -eq 1 ]]
 	then
 		# Setup Partitioning
 		echo 'Partitioning the disk'
-		sfdisk /dev/sda <<- EOF
+		sfdisk $DRIVE <<- EOF
 		label: gpt
-		device: /dev/sda
+		device: $DRIVE
 		unit: sectors
 
 		,512M,uefi
-		,2G,swap
+		,$SWAP,swap
 		;,home
 		EOF
 
 		# Format the partitions
 		echo 'Formatting partitions'
-		mkfs.fat -F32 /dev/sda1
-		mkfs.ext4 /dev/sda3
+		mkfs.fat -F32 ${DRIVE}1
+		mkfs.ext4 ${DRIVE}3
 
 		# Mounting partitions
 		echo 'Mounting partitions'
-		mount /dev/sda3 /mnt
+		mount ${DRIVE}3 /mnt
 		mkdir -pv /mnt/efi
-		mount /dev/sda1 /mnt/efi
+		mount ${DRIVE}1 /mnt/efi
 
 		# Enable swap
-		mkswap /dev/sda2
-		swapon /dev/sda2
+		mkswap ${DRIVE}2
+		swapon ${DRIVE}2
 
 		# Enabling efivarfs
 		modprobe efivarfs
@@ -229,9 +198,9 @@ setup_partitions() {
 	then
 		# Setup Partitioning
 		echo 'Partitioning the disk'
-		sfdisk /dev/sda <<- EOF
+		sfdisk ${DRIVE} <<- EOF
 		label: mbr
-		device: /dev/sda
+		device: ${DRIVE}
 		unit: sectors
 
 		,2G,swap
@@ -240,18 +209,19 @@ setup_partitions() {
 
 		# Format the partitions
 		echo 'Formatting partitions'
-		mkfs.ext4 /dev/sda2
+		mkfs.ext4 ${DRIVE}2
 
 		# Mounting partitions
 		echo 'Mounting partitions'
-		mount /dev/sda2 /mnt
+		mount ${DRIVE}2 /mnt
 		mkdir -pv /mnt/boot
 
 		# Enable swap
-		mkswap /dev/sda1
-		swapon /dev/sda1
+		mkswap ${DRIVE}1
+		swapon ${DRIVE}1
 
 	fi
+
 }
 
 install_packages() {
@@ -337,17 +307,64 @@ configure_netctl() {
 
 get_dot_files() {
 	# Replace config files with config files from github
-	# Awesome config
-	#git clone
-	# Autorun on start file
-	#git clone
-	# Flameshot config file
-	#git clone
+	cd ~
+	git clone https://github.com/Baigel/dotfiles
+	mv ./dotfiles/spectrwm/.spectrwm.conf .
+	mv ./dotfiles/shell_preferences/.shellrc .
+	mv ./dotfiles/xmodmap/.xmodmaprc .
+	mv ./dotfiles/.wallpaper .
 }
+
+# User Prompt Stuff
+# System Details
+echo "Drive? (e.g. /dev/sda)"
+read DRIVE
+echo "Timezone? (e.g. Europe/Belfast)"
+read TIMEZONE
+echo "Keymap? (e.g. us)"
+read KEYMAP
+echo "Swapspace? (e.g. 2G)"
+read KEYMAP
+
+# Prompt for BIOS or UEFI
+echo "Install UEFI (with GPT) or BIOS (with MBR)?"
+echo "1: UEFI"
+echo "2: BIOS"
+read BOOTLOADER
+if [[ $BOOTLOADER -ne 1 && $BOOTLOADER -ne 2 ]]
+then
+	echo "Error: Bootloader not valid; exiting now."
+	exit 1
+fi
+
+# Get hostname and username
+echo 'Enter username'
+read USERNAME
+echo 'Enter hostname: '
+read HOSTNAME
+
+# Get Password
+echo -n "Password: "
+read -s PASSWORD
+echo
+echo -n "Repeat Password: "
+read -s PASSWORD2
+echo
+[[ "$PASSWORD" == "$PASSWORD2" ]] || ( echo "Error: Passwords did not match; exiting now."; exit 1; )
+
+# testing
+# ########################################################### @@@@@@@@@@@@@@temporary
+DRIVE='/dev/sda'
+TIMEZONE='Australia/Brisbane'
+KEYMAP='us'
+SWAP="2G"
+HOSTNAME='baigel-vm'
+USERNAME='baigel'
+PASSWORD='toor'
 
 # Jump to chroot part of the install, if that part has been reached
 if [ "$1" = "chroot" ] ; then
-	configure_arch
+	configure_arch $DRIVE $TIMEZONE $KEYMAP $HOSTNAME $USERNAME $PASSWORD $BOOTLOADER
 else
-	install_arch
+	install_arch $BOOTLOADER $SWAP
 fi
