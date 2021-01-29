@@ -22,7 +22,9 @@ BOOTLOADER=2
 GIT_NAME='baigel'
 GIT_EMAIL='baigel'
 
-## Alternate code to only prompt password on runtime
+## Alternate code to only prompt password on runtime (don't leave it here
+# though, as then it would prompt both when run initially and when entering
+# chroot)
 #echo -n "Enter password: "
 #read -sr PASSWORD
 #echo
