@@ -142,8 +142,8 @@ fix_mirrors() {
 }
 
 setup_partitions() {
-	# $1 is BOOTLOADER (1 is UEFI and 2 is BIOS)
-	if [[ $1 -eq 1 ]]
+	# BOOTLOADER: 1 is UEFI and 2 is BIOS)
+	if [[ $BOOTLOADER -eq 1 ]]
 	then
 		# Setup Partitioning
 		echo 'Partitioning the disk'
@@ -170,7 +170,7 @@ setup_partitions() {
 		swapon ${DRIVE}2
 		# Enabling efivarfs
 		modprobe efivarfs
-	elif [[ $1 -eq 2 ]]
+	elif [[ $BOOTLOADER -eq 2 ]]
 	then
 		# Setup Partitioning
 		echo 'Partitioning the disk'
@@ -273,16 +273,17 @@ get_dot_files() {
 	# Replace config files with config files from github
 	cd ~
 	git clone https://github.com/Baigel/dotfiles
-	mv ./dotfiles/spectrwm/.spectrwm.conf .
-	mv ./dotfiles/shell_preferences/.shellrc .
-	mv ./dotfiles/xmodmap/.xmodmaprc .
-	mv ./dotfiles/.wallpaper .
+	mv -f ./dotfiles/spectrwm/.spectrwm.conf .
+	mv -f ./dotfiles/shell_preferences/.shellrc .
+	mv -f ./dotfiles/xmodmap/.xmodmaprc .
+	mv -f ./dotfiles/.wallpaper .
 }
 
 setup_git(){
 	git config --global user.name "${GIT_NAME}"
-		git config --global user.name "${GIT_EMAIL}"
+	git config --global user.name "${GIT_EMAIL}"
 	git config --global color.ui true
+	git config --global core.editor emacs
 }
 
 # Jump to chroot part of the install, if that part has been reached
