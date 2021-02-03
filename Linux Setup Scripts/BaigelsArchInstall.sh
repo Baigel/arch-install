@@ -200,7 +200,7 @@ install_packages() {
 	DEVELOPMENT="git gcc libstdc++5 boost-libs boost git code python atom"
 	TERMINAL="alacritty exa ranger dictd xorg-xev xdotool screenfetch feh"
 	LATEX="texlive-core texlive-latexextra texlive-science pdftk"
-	NETWORK="dhcpcd ifplugd dialog network-manager-applet"
+	NETWORK="dhcpcd ifplugd dialog networkmanager"
 	# wireless_tools wpa_supplicant
 	GUI_TOOLS="nano dolphin firefox flameshot vlc"
 	CLI_TOOLS="packer playerctl feh termdown cpupower usbutils aspell-en openssh p7zip"
@@ -274,6 +274,7 @@ get_dot_files() {
 	cd ~
 	git clone https://github.com/Baigel/dotfiles
 	mv -f ./dotfiles/spectrwm/.spectrwm.conf .
+	mv -f ./dotfiles/spectrwm/.baraction.sh .
 	mv -f ./dotfiles/shell_preferences/.shellrc .
 	mv -f ./dotfiles/xmodmap/.xmodmaprc .
 	mv -f ./dotfiles/.wallpaper .
