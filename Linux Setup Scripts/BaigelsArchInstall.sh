@@ -13,6 +13,7 @@ set -ex # x flag prints each line of script for debugging
 DRIVE='/dev/sda'
 TIMEZONE='Europe/Belfast'
 KEYMAP='us'
+SHELL='/bin/bash'
 SWAP="2G"
 HOSTNAME='baigel-pc'
 USERNAME='baigel'
@@ -61,24 +62,23 @@ install_arch() {
 	arch-chroot /mnt ./arch_install.sh chroot
 }
 
+# Many of my personal preferences will be found in this function (and the functions that it calls)
 configure_arch() {
-	echo 'Continuing setup in chroot'
-	# Chroot specific setup
-	echo 'Setting timezone'
+	# Setting timezone
 	ln -sf /usr/share/zoneinfo/$TIMEZONE /etc/localtime
-	echo 'Generating /etc/adjtime'
+	# Generating /etc/adjtime
 	hwclock --systohc
-	echo 'Setting localization'
+	# Setting localization
 	echo 'en_US.UTF-8 UTF-8' >> /etc/locale.gen
 	echo 'LANG=en_US.UTF-8' >> /etc/locale.conf
 	locale-gen
-	echo 'Set keymap'
+	# Set keymap
 	echo "KEYMAP=$KEYMAP" >> /etc/vconsole.conf
-	echo 'Setting hostname and configuring network'
+	# Setting hostname and configuring network
 	echo "$HOSTNAME" >> /etc/hostname
 	printf "127.0.0.1	localhost\n::1		localhost\n127.0.1.1	%s.localdomain	%s" $HOSTNAME $HOSTNAME >> /etc/hosts
 	echo 'Adding user'
-	useradd -m -s /bin/bash -G adm,systemd-journal,wheel,rfkill,games,network,video,audio,optical,storage,scanner,power "$USERNAME"
+	useradd -m -s $SHELL -G adm,systemd-journal,wheel,rfkill,games,network,video,audio,optical,storage,scanner,power "$USERNAME"
 	echo 'Setting root password'
 	echo -en "$PASSWORD\n$PASSWORD" | passwd
 	echo 'Setting user password'
@@ -90,7 +90,7 @@ configure_arch() {
 	printf "[multilib]\nInclude = /etc/pacman.d/mirrorlist" >> /etc/pacman.conf
 	pacman -Sy --noconfirm
 	echo 'Installing desktop environment'
-	install_de
+	install_wm
 	echo 'Configuring X11'
 	configure_x11
 	echo 'Installing programs'
@@ -98,10 +98,10 @@ configure_arch() {
 	echo 'Getting dot files'
 	get_dot_files
 	setup_git
-	echo 'Setting up microde'
+	# Force interactive login shell to use my shell preferences (mostly just for run-on-start commands)
+	echo 'source ~/.shellrc' >> /etc/profile
+	# Setting up microde
 	echo 'microcode' > /etc/modules-load.d/intel-ucode.conf
-	echo 'Enable systemctl services'
-	systemctl enable cpupower.service
 	echo 'Updating locate'
 	locale-gen
 	echo ' --- Installing Bootloader (grub) --- '
@@ -114,10 +114,6 @@ configure_arch() {
 	exit
 	umount -R /mnt
 	echo ' --- Install Finished --- '
-	# Set Wallpaper
-	#git clone
-	# Need to make the following wallpaper change permanent
-	#feh --bg-scale ~/.wallpaper
 	# Install atom addons
 	#apm install save-workspace
 }
@@ -209,6 +205,10 @@ install_packages() {
 	LOGIN=""
 	FONTS=""
 	pacman -Sy --noconfirm $DEVELOPMENT $TERMINAL $LATEX $NETWORK $GUI_TOOLS $CLI_TOOLS $INTEL $AUDIO $LOGIN $FONTS
+	# Enable Deamons
+	systemctl enable NetworkManager
+	systemctl start NetworkManager
+	systemctl enable cpupower.service
 	# Install Doom Emacs
 	#git clone --depth 1 https://github.com/hlissner/doom-emacs ~/.emacs.d
 	#~/.emacs.d/bin/doom install
@@ -235,7 +235,7 @@ install_packages() {
 	#rm -rf ~/aur-programs
 	#EOF
 	#chmod +x /aur_install.sh
-	#su -s /bin/bash -l $USERNAME -c "/aur_install.sh"
+	#su -s $SHELL -l $USERNAME -c "/aur_install.sh"
 }
 
 configure_x11() {
@@ -251,7 +251,7 @@ configure_x11() {
 	EOF
 }
 
-install_de() {
+install_wm() {
 	# Install DE (spectrwm)
 	pacman -S --noconfirm spectrwm
 	pacman -S --noconfirm sddm
@@ -264,20 +264,26 @@ install_de() {
 	pacman -S --noconfirm rofi
 }
 
+# Not currently called (why?)
 configure_netctl() {
-	echo 'Enable systemctl wifi services'
+	echo 'Enable wifi services'
 	systemctl enable net-auto-wired.service net-auto-wireless.service
 }
 
 get_dot_files() {
 	# Replace config files with config files from github
-	cd ~
+    cd /home/$USERNAME
 	git clone https://github.com/Baigel/dotfiles
 	mv -f ./dotfiles/spectrwm/.spectrwm.conf .
 	mv -f ./dotfiles/spectrwm/.baraction.sh .
 	mv -f ./dotfiles/shell_preferences/.shellrc .
 	mv -f ./dotfiles/xmodmap/.xmodmaprc .
 	mv -f ./dotfiles/.wallpaper .
+	chmod 776 .spectrwm.conf
+	chmod 776 .baraction.sh
+	chmod 776 .shellrc
+	chmod 776 .xmodmaprc
+	chmod 776 .wallpaper
 }
 
 setup_git(){
@@ -287,7 +293,7 @@ setup_git(){
 	git config --global core.editor emacs
 }
 
-# Jump to chroot part of the install, if that part has been reached
+# Jump to chroot part of the install, if called with $1=chroot
 if [ "$1" != "chroot" ] ; then
 	install_arch
 else
