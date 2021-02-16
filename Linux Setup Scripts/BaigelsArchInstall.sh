@@ -3,8 +3,12 @@
 # *************** BAIGEL's ARCH INSTALL ***************
 
 # Basic Overview:
-# Desktop Environment:
-# Window Manager:	Spectrwm
+# Window Manager:       Spectrwm
+
+# Still to do:
+# - Fix baraction
+# - Auto-detection of monitors (udev/xrandr)
+# - Fix notifications (currently, there are none)
 
 set -ex # x flag prints each line of script for debugging
 #set -e # exit on error
@@ -13,14 +17,14 @@ set -ex # x flag prints each line of script for debugging
 DRIVE='/dev/sda'
 TIMEZONE='Europe/Belfast'
 KEYMAP='us'
-SHELL='/bin/bash'
+SHELL='/bin/zsh'
 SWAP="2G"
 HOSTNAME='baigel-pc'
 USERNAME='baigel'
 PASSWORD='toor'
 # UEFI: 1; BIOS: 2
 BOOTLOADER=2
-GIT_NAME='baigel'
+GIT_NAME='Baigel'
 GIT_EMAIL='baigel'
 
 ## Alternate code to only prompt password on runtime (don't leave it here
@@ -32,7 +36,7 @@ GIT_EMAIL='baigel'
 #echo -n "Repeat password: "
 #read -sr PASSWORD2
 #echo
-#[[ "$PASSWORD" == "$PASSWORD2" ]] || ( echo "Error: Passwords did not match; exiting now."; exit 1; )
+#[[ "$PASSWORD" == "$PASSWORD2" ]] || ( echo "Error: Passwords did not match; exiting now"; exit 1; )
 
 # Debug line (halts on every line)
 #trap read debug
@@ -42,22 +46,16 @@ install_arch() {
 	echo 'WARNING: THIS SCRIPT WILL BLINDLY WIPE THE DISK!'
 	echo 'Press Enter to continue...'
 	read -sr
-	echo ' -- Starting Setup --- '
 	enable_logging
 	# Update system clock
-	echo 'Update system clock'
 	timedatectl set-ntp true
 	fix_mirrors
-	echo ' --- Setting Up Boot and Swap Partitions --- '
 	setup_partitions
 	# Install important packages using pacstrap
-	echo ' --- Installing Base --- '
 	pacstrap /mnt base base-devel linux linux-firmware
 	# Generate fstab
-	echo 'Generating the fstab file'
 	genfstab -U /mnt >> /mnt/etc/fstab
 	# Enter chroot to continue install
-	echo 'Entering chroot to continue install'
 	cp "$0" /mnt/arch_install.sh
 	arch-chroot /mnt ./arch_install.sh chroot
 }
@@ -77,34 +75,34 @@ configure_arch() {
 	# Setting hostname and configuring network
 	echo "$HOSTNAME" >> /etc/hostname
 	printf "127.0.0.1	localhost\n::1		localhost\n127.0.1.1	%s.localdomain	%s" $HOSTNAME $HOSTNAME >> /etc/hosts
-	echo 'Adding user'
+	# Adding user (first install zsh)
+	pacman -Sy --noconfirm zsh
 	useradd -m -s $SHELL -G adm,systemd-journal,wheel,rfkill,games,network,video,audio,optical,storage,scanner,power "$USERNAME"
-	echo 'Setting root password'
+	# Setting root password
 	echo -en "$PASSWORD\n$PASSWORD" | passwd
-	echo 'Setting user password'
+	# Setting user password
 	echo -en "$PASSWORD\n$PASSWORD" | passwd $USERNAME
-	echo 'Adding root and user as sudoers'
+	# Adding root and user as sudoers
 	printf "root ALL=(ALL) ALL\n%s ALL=(ALL) ALL" $USERNAME > /etc/sudoers
 	chmod 440 /etc/sudoers
-	echo 'Add multilib repository'
+	# Add multilib repository
 	printf "[multilib]\nInclude = /etc/pacman.d/mirrorlist" >> /etc/pacman.conf
 	pacman -Sy --noconfirm
-	echo 'Installing desktop environment'
+	# Installing desktop environment
 	install_wm
-	echo 'Configuring X11'
+	# Configuring X11
 	configure_x11
-	echo 'Installing programs'
+	# Installing programs
 	install_packages
-	echo 'Getting dot files'
+	# Getting dot files
 	get_dot_files
+	# Setup global git config vars
 	setup_git
-	# Force interactive login shell to use my shell preferences (mostly just for run-on-start commands)
-	echo 'source ~/.shellrc' >> /etc/profile
 	# Setting up microde
 	echo 'microcode' > /etc/modules-load.d/intel-ucode.conf
-	echo 'Updating locate'
+	# Updating locate
 	locale-gen
-	echo ' --- Installing Bootloader (grub) --- '
+	# Installing Bootloader (grub)
 	pacman -S --noconfirm grub os-prober
 	[[ $BOOTLOADER -eq 1 ]] && ( sudo pacman -S --noconfirm efibootmgr )
 	[[ $BOOTLOADER -eq 1 ]] && ( grub-install --recheck --target=x86_64-efi --efi-directory=/efi --bootloader-id=GRUB $DRIVE )
@@ -113,15 +111,10 @@ configure_arch() {
 	echo 'Exiting'
 	exit
 	umount -R /mnt
-	echo ' --- Install Finished --- '
-	# Install atom addons
-	#apm install save-workspace
+	echo 'Install finished'
 }
 
-# Functions
-
 enable_logging() {
-	echo 'Enabling logging'
 	exec 1> >(tee "stdout.log")
 	exec 2> >(tee "stderr.log")
 }
@@ -142,7 +135,6 @@ setup_partitions() {
 	if [[ $BOOTLOADER -eq 1 ]]
 	then
 		# Setup Partitioning
-		echo 'Partitioning the disk'
 		sfdisk $DRIVE <<- EOF
 		label: gpt
 		device: $DRIVE
@@ -153,11 +145,9 @@ setup_partitions() {
 		;,home
 		EOF
 		# Format the partitions
-		echo 'Formatting partitions'
 		mkfs.fat -F32 ${DRIVE}1
 		mkfs.ext4 ${DRIVE}3
 		# Mounting partitions
-		echo 'Mounting partitions'
 		mount ${DRIVE}3 /mnt
 		mkdir -pv /mnt/efi
 		mount ${DRIVE}1 /mnt/efi
@@ -169,7 +159,6 @@ setup_partitions() {
 	elif [[ $BOOTLOADER -eq 2 ]]
 	then
 		# Setup Partitioning
-		echo 'Partitioning the disk'
 		sfdisk ${DRIVE} <<- EOF
 		label: mbr
 		device: ${DRIVE}
@@ -179,10 +168,8 @@ setup_partitions() {
 		;,linux
 		EOF
 		# Format the partitions
-		echo 'Formatting partitions'
 		mkfs.ext4 ${DRIVE}2
 		# Mounting partitions
-		echo 'Mounting partitions'
 		mount ${DRIVE}2 /mnt
 		mkdir -pv /mnt/boot
 		# Enable swap
@@ -192,50 +179,27 @@ setup_partitions() {
 }
 
 install_packages() {
-	# Core software from official Arch repositories
-	DEVELOPMENT="git gcc libstdc++5 boost-libs boost git code python atom"
-	TERMINAL="alacritty exa ranger dictd xorg-xev xdotool screenfetch feh"
+	# Core software
+	DEVELOPMENT="git gcc libstdc++5 boost-libs boost code python emacs"
+	TERMINAL="alacritty exa ranger dictd xorg-xev xdotool feh"
 	LATEX="texlive-core texlive-latexextra texlive-science pdftk"
 	NETWORK="dhcpcd ifplugd dialog networkmanager"
 	# wireless_tools wpa_supplicant
-	GUI_TOOLS="nano dolphin firefox flameshot vlc"
-	CLI_TOOLS="packer playerctl feh termdown cpupower usbutils aspell-en openssh p7zip"
+	GUI_TOOLS="dolphin firefox flameshot vlc lxrandr"
+    CLI_TOOLS="nano sysstat acpi packer playerctl feh termdown cpupower usbutils aspell-en openssh p7zip"
 	INTEL="intel-ucode"
 	AUDIO="pulseaudio-alsa pulseaudio pulseaudio-bluetooth pasystray alsa-utils playerctl"
-	LOGIN=""
-	FONTS=""
-	pacman -Sy --noconfirm $DEVELOPMENT $TERMINAL $LATEX $NETWORK $GUI_TOOLS $CLI_TOOLS $INTEL $AUDIO $LOGIN $FONTS
+    NOTIFICATIONS="libnotify notification-daemon"
+    pacman -Sy --noconfirm $DEVELOPMENT $TERMINAL $LATEX $NETWORK $GUI_TOOLS $CLI_TOOLS $INTEL $AUDIO $NOTIFICATIONS
 	# Enable Deamons
 	systemctl enable NetworkManager
 	systemctl start NetworkManager
 	systemctl enable cpupower.service
-	# Install Doom Emacs
-	#git clone --depth 1 https://github.com/hlissner/doom-emacs ~/.emacs.d
-	#~/.emacs.d/bin/doom install
-	# Software AUR Programs and other community packages
-	# Other software: github-desktop-git scrcpy yay wpa_actiond wpa_supplicant_gui
-					# spotify spotify-adblock-git steam-fonts tllocalmgr-git discord steam-native
-	#cat > /aur_install.sh <<- EOF
-	#cd ~
-	#mkdir -p aur-programs
-	#cd aur-programs
-	#AURPrograms=( yay wpa_actiond wpa_supplicant_gui spotify spotify-adblock-git steam-fonts tllocalmgr-git )
-	#echo "\${AURPrograms}"
-	#for i in "\${AURPrograms[@]}"
-	#	do
-	#	echo "Package: \$i"
-	#	{
-	#	git clone "https://aur.archlinux.org/\$i.git"
-	#	cd \$i
-	#	makepkg -si --noconfirm \$i
-	#	cd ..
-	#	} || echo "Package \$i not found!"
-	#done
-	#cd
-	#rm -rf ~/aur-programs
-	#EOF
-	#chmod +x /aur_install.sh
-	#su -s $SHELL -l $USERNAME -c "/aur_install.sh"
+	# Get Doom Emacs (~/.emacs.d/bin is added to PATH by .shellrc, meaning user will still need to run `doom install`)
+	git clone --depth 1 https://github.com/hlissner/doom-emacs /home/$USERNAME/.emacs.d
+	# Powerlevel10k (note: sourcing p10k config is done in ~ /zshrc)
+	git clone --depth=1 https://github.com/romkatv/powerlevel10k.git /home/$USERNAME/.powerlevel10k
+	echo "[[ \$- == *i* ]] && source ~/.powerlevel10k/powerlevel10k.zsh-theme" >> /home/$USERNAME/.zshrc
 }
 
 configure_x11() {
@@ -266,24 +230,31 @@ install_wm() {
 
 # Not currently called (why?)
 configure_netctl() {
-	echo 'Enable wifi services'
 	systemctl enable net-auto-wired.service net-auto-wireless.service
 }
 
 get_dot_files() {
+    # Create .zshrc (for sourcing)
+    touch /home/$USERNAME/.zshrc
+    #chmod 776 /home/$USERNAME/.zshrc
+    # Force interactive login and non-login shell to use my shell preferences (/etc/profile only needed for autorun stuff; inelegant, yes, but also easy)
+    echo 'source ~/.shellrc' >> /etc/profile
+    echo 'source ~/.shellrc' >> /home/$USERNAME/.zshrc
 	# Replace config files with config files from github
     cd /home/$USERNAME
-	git clone https://github.com/Baigel/dotfiles
-	mv -f ./dotfiles/spectrwm/.spectrwm.conf .
-	mv -f ./dotfiles/spectrwm/.baraction.sh .
-	mv -f ./dotfiles/shell_preferences/.shellrc .
-	mv -f ./dotfiles/xmodmap/.xmodmaprc .
-	mv -f ./dotfiles/.wallpaper .
-	chmod 776 .spectrwm.conf
-	chmod 776 .baraction.sh
-	chmod 776 .shellrc
-	chmod 776 .xmodmaprc
-	chmod 776 .wallpaper
+    GIT_FOLDER="${GIT_NAME}-Git"
+    mkdir ${GIT_FOLDER}
+    git clone https://github.com/Baigel/dotfiles "${GIT_FOLDER}/dotfiles"
+    ln -s ./${GIT_FOLDER}/dotfiles/spectrwm/.spectrwm.conf .spectrwm.conf
+    ln -s ./${GIT_FOLDER}/dotfiles/spectrwm/.baraction.sh .baraction.sh
+    ln -s ./${GIT_FOLDER}/dotfiles/shell_preferences/.shellrc .shellrc
+    ln -s ./${GIT_FOLDER}/dotfiles/xmodmap/.xmodmaprc .xmodmaprc
+    ln -s ./${GIT_FOLDER}/dotfiles/.wallpaper .wallpaper
+    # Get notifications (dunst) config
+    mkdir -p /home/$USERNAME/.config/dunst
+    ln -s /home/$USERNAME/${GIT_FOLDER}/dotfiles/dunst/dunstrc /home/$USERNAME/.config/dunst/dunstrc
+    # Give directory ownership to user (recursive)
+    chown $USERNAME:$USERNAME -R /home/$USERNAME
 }
 
 setup_git(){
