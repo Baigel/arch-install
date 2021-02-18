@@ -4,16 +4,12 @@
 
 # Still to do:
 # - Need better power management (bat vs charging, etc) (lid closing/etc)
-# - Fix notifications (currently, there are none)
-# - Pulseaudio volume control
 # - Get Bluetooth working
 # - Printing
-# - Appearance (theme manger)
 # - Auto-detection of monitors (udev/xrandr)
-# - Fix doom emacs
+# - Appearance (theme manager)
 # - Theme for programs (like dolphin)
-# - Default apps
-# - Volume on baraction
+# - Replace dolphin with something else
 
 set -ex # x flag prints each line of script for debugging
 #set -e # exit on error
@@ -197,15 +193,15 @@ install_packages() {
 	AUDIO="pulseaudio-alsa pulseaudio pavucontrol pulseaudio-bluetooth alsa-utils playerctl"
     NOTIFICATIONS="notification-daemon dunst"
 	PDF="okular pdftk"
-	PRINTING="cups cups-pdf"
-	APPEARANCE="gtk3"
+	PRINTING="cups cups-pdf system-config-printer"
+	APPEARANCE="gtk34 breeze-gtk lxappearance"
 	pacman -Sy --noconfirm $DEVELOPMENT $TERMINAL $LATEX $NETWORK $GUI_TOOLS $INTEL $AUDIO $NOTIFICATIONS $PDF $PRINTING $APPEARANCE
 	# Enable Deamons
 	systemctl enable NetworkManager
-	#systemctl start NetworkManager
 	systemctl enable cpupower.service
 	systemctl enable bluetooth
-	# Get Doom Emacs (~/.emacs.d/bin is added to PATH by .shellrc, meaning user will still need to run `doom install`)
+	systemctl enable cups
+	# Get Doom Emacs (~/.emacs.d/bin is added to PATH by .shellrc, meaning user will still need to run `doom` then `doom install`, just running the latter didn't seem to work??)
 	git clone --depth 1 https://github.com/hlissner/doom-emacs /home/$USERNAME/.emacs.d
 	# Powerlevel10k (note: sourcing p10k config is done in ~ /zshrc)
 	git clone --depth=1 https://github.com/romkatv/powerlevel10k.git /home/$USERNAME/.powerlevel10k
@@ -255,14 +251,18 @@ get_dot_files() {
     GIT_FOLDER="${GIT_NAME}-Git"
     mkdir ${GIT_FOLDER}
     git clone https://github.com/Baigel/dotfiles "${GIT_FOLDER}/dotfiles"
-    ln -s ./${GIT_FOLDER}/dotfiles/spectrwm/.spectrwm.conf .spectrwm.conf
+    # Get all $HOME directory configs
+	ln -s ./${GIT_FOLDER}/dotfiles/spectrwm/.spectrwm.conf .spectrwm.conf
     ln -s ./${GIT_FOLDER}/dotfiles/spectrwm/.baraction.sh .baraction.sh
     ln -s ./${GIT_FOLDER}/dotfiles/shell_preferences/.shellrc .shellrc
     ln -s ./${GIT_FOLDER}/dotfiles/xmodmap/.xmodmaprc .xmodmaprc
     ln -s ./${GIT_FOLDER}/dotfiles/.wallpaper .wallpaper
+    # Get ranger config
+    mkdir -p /home/$USERNAME/.config/ranger
+    ln -s ./${GIT_FOLDER}/dotfiles/ranger/rc.conf .config/ranger/rc.conf
     # Get notifications (dunst) config
     mkdir -p /home/$USERNAME/.config/dunst
-    ln -s /home/$USERNAME/${GIT_FOLDER}/dotfiles/dunst/dunstrc /home/$USERNAME/.config/dunst/dunstrc
+    ln -s ./${GIT_FOLDER}/dotfiles/dunst/dunstrc .config/dunst/dunstrc
     # Copy systemd files over (instead of soft linking, to avoid permission issues)
     cp -f ./${GIT_FOLDER}/dotfiles/systemd/logind.conf /etc/systemd/logind.conf
     # Give directory ownership to user (recursive)
