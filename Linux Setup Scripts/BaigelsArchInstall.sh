@@ -22,16 +22,17 @@ BOOTLOADER=2 # UEFI: 1; BIOS: 2
 GIT_NAME='Baigel'
 GIT_EMAIL='@gmail.com'
 
-## Alternate code to only prompt password on runtime (don't leave it here
-# though, as then it would prompt both when run initially and when entering
-# chroot)
-#echo -n "Enter password: "
-#read -sr PASSWORD
-#echo
-#echo -n "Repeat password: "
-#read -sr PASSWORD2
-#echo
-#[[ "$PASSWORD" == "$PASSWORD2" ]] || ( echo "Error: Passwords did not match; exiting now"; exit 1; )
+## Alternate code to only prompt password on runtime
+#if [ "$1" == "chroot" ] ; then
+#	install_arch
+#	echo -n "Enter password: "
+#	read -sr PASSWORD
+#	echo
+#	echo -n "Repeat password: "
+#	read -sr PASSWORD2
+#	echo
+#	[[ "$PASSWORD" == "$PASSWORD2" ]] || ( echo "Error: Passwords did not match; exiting now"; exit 1; )
+#fi
 
 # Debug line (halts on every line)
 #trap read debug
