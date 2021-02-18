@@ -3,8 +3,17 @@
 # *************** BAIGEL's ARCH INSTALL ***************
 
 # Still to do:
-# - Auto-detection of monitors (udev/xrandr)
+# - Need better power management (bat vs charging, etc) (lid closing/etc)
 # - Fix notifications (currently, there are none)
+# - Pulseaudio volume control
+# - Get Bluetooth working
+# - Printing
+# - Appearance (theme manger)
+# - Auto-detection of monitors (udev/xrandr)
+# - Fix doom emacs
+# - Theme for programs (like dolphin)
+# - Default apps
+# - Volume on baraction
 
 set -ex # x flag prints each line of script for debugging
 #set -e # exit on error
@@ -176,23 +185,26 @@ setup_partitions() {
 }
 
 install_packages() {
-	# Core software
-	DEVELOPMENT="git gcc libstdc++5 boost-libs boost code python emacs"
-    TERMINAL="alacritty exa ranger dictd xorg-xev xdotool feh termdown nano sysstat acpi playerctl cpupower usbutils aspell-en openssh"
-	LATEX="texlive-core texlive-latexextra texlive-science pdftk"
+	# User software software
+	DEVELOPMENT="git gcc make cmake libstdc++5 boost-libs boost code python emacs"
+    TERMINAL="alacritty exa ranger dictd xorg-xev xdotool feh termdown nano sysstat acpi cpupower usbutils aspell-en openssh"
+	LATEX="texlive-core texlive-latexextra texlive-science"
 	NETWORK="dhcpcd ifplugd dialog networkmanager"
-	# wireless_tools wpa_supplicant
+	BLUETOOTH="bluez bluez-tools blueman"
 	GUI_TOOLS="dolphin firefox flameshot vlc lxrandr"
-    CLI_TOOLS=""
     ZIP_TOOLS="p7zip unrar gzip unzip"
 	INTEL="intel-ucode"
-	AUDIO="pulseaudio-alsa pulseaudio pulseaudio-bluetooth pasystray alsa-utils playerctl"
+	AUDIO="pulseaudio-alsa pulseaudio pavucontrol pulseaudio-bluetooth alsa-utils playerctl"
     NOTIFICATIONS="notification-daemon dunst"
-    pacman -Sy --noconfirm $DEVELOPMENT $TERMINAL $LATEX $NETWORK $GUI_TOOLS $CLI_TOOLS $INTEL $AUDIO $NOTIFICATIONS
+	PDF="okular pdftk"
+	PRINTING="cups cups-pdf"
+	APPEARANCE="gtk3"
+	pacman -Sy --noconfirm $DEVELOPMENT $TERMINAL $LATEX $NETWORK $GUI_TOOLS $INTEL $AUDIO $NOTIFICATIONS $PDF $PRINTING $APPEARANCE
 	# Enable Deamons
 	systemctl enable NetworkManager
-	systemctl start NetworkManager
+	#systemctl start NetworkManager
 	systemctl enable cpupower.service
+	systemctl enable bluetooth
 	# Get Doom Emacs (~/.emacs.d/bin is added to PATH by .shellrc, meaning user will still need to run `doom install`)
 	git clone --depth 1 https://github.com/hlissner/doom-emacs /home/$USERNAME/.emacs.d
 	# Powerlevel10k (note: sourcing p10k config is done in ~ /zshrc)
@@ -251,6 +263,8 @@ get_dot_files() {
     # Get notifications (dunst) config
     mkdir -p /home/$USERNAME/.config/dunst
     ln -s /home/$USERNAME/${GIT_FOLDER}/dotfiles/dunst/dunstrc /home/$USERNAME/.config/dunst/dunstrc
+    # Copy systemd files over (instead of soft linking, to avoid permission issues)
+    cp -f ./${GIT_FOLDER}/dotfiles/systemd/logind.conf /etc/systemd/logind.conf
     # Give directory ownership to user (recursive)
     chown $USERNAME:$USERNAME -R /home/$USERNAME
 }
