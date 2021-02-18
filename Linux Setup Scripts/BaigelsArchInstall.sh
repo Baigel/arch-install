@@ -2,11 +2,7 @@
 
 # *************** BAIGEL's ARCH INSTALL ***************
 
-# Basic Overview:
-# Window Manager:       Spectrwm
-
 # Still to do:
-# - Fix baraction
 # - Auto-detection of monitors (udev/xrandr)
 # - Fix notifications (currently, there are none)
 
@@ -18,14 +14,13 @@ DRIVE='/dev/sda'
 TIMEZONE='Europe/Belfast'
 KEYMAP='us'
 SHELL='/bin/zsh'
-SWAP="2G"
+SWAP="4G"
 HOSTNAME='baigel-pc'
 USERNAME='baigel'
 PASSWORD='toor'
-# UEFI: 1; BIOS: 2
-BOOTLOADER=2
+BOOTLOADER=2 # UEFI: 1; BIOS: 2
 GIT_NAME='Baigel'
-GIT_EMAIL='baigel'
+GIT_EMAIL='@gmail.com'
 
 ## Alternate code to only prompt password on runtime (don't leave it here
 # though, as then it would prompt both when run initially and when entering
@@ -43,7 +38,7 @@ GIT_EMAIL='baigel'
 
 install_arch() {
 	# Prompt user with inital warning
-	echo 'WARNING: THIS SCRIPT WILL BLINDLY WIPE THE DISK!'
+	echo 'WARNING: THIS SCRIPT WILL BLINDLY WIPE THE DISK! ($DRIVE)'
 	echo 'Press Enter to continue...'
 	read -sr
 	enable_logging
@@ -114,6 +109,7 @@ configure_arch() {
 	echo 'Install finished'
 }
 
+# Sub-Functions (called by the two main functions, install_arch and configure arch)
 enable_logging() {
 	exec 1> >(tee "stdout.log")
 	exec 2> >(tee "stderr.log")
@@ -181,15 +177,16 @@ setup_partitions() {
 install_packages() {
 	# Core software
 	DEVELOPMENT="git gcc libstdc++5 boost-libs boost code python emacs"
-	TERMINAL="alacritty exa ranger dictd xorg-xev xdotool feh"
+    TERMINAL="alacritty exa ranger dictd xorg-xev xdotool feh termdown nano sysstat acpi playerctl cpupower usbutils aspell-en openssh"
 	LATEX="texlive-core texlive-latexextra texlive-science pdftk"
 	NETWORK="dhcpcd ifplugd dialog networkmanager"
 	# wireless_tools wpa_supplicant
 	GUI_TOOLS="dolphin firefox flameshot vlc lxrandr"
-    CLI_TOOLS="nano sysstat acpi packer playerctl feh termdown cpupower usbutils aspell-en openssh p7zip"
+    CLI_TOOLS=""
+    ZIP_TOOLS="p7zip unrar gzip unzip"
 	INTEL="intel-ucode"
 	AUDIO="pulseaudio-alsa pulseaudio pulseaudio-bluetooth pasystray alsa-utils playerctl"
-    NOTIFICATIONS="libnotify notification-daemon"
+    NOTIFICATIONS="notification-daemon dunst"
     pacman -Sy --noconfirm $DEVELOPMENT $TERMINAL $LATEX $NETWORK $GUI_TOOLS $CLI_TOOLS $INTEL $AUDIO $NOTIFICATIONS
 	# Enable Deamons
 	systemctl enable NetworkManager
@@ -212,6 +209,7 @@ configure_x11() {
 	#/usr/bin/xautolock -time 20 -locker slock &
 	~/.fehbg
 	exec spectrwm
+	dunst
 	EOF
 }
 
@@ -220,7 +218,6 @@ install_wm() {
 	pacman -S --noconfirm spectrwm
 	pacman -S --noconfirm sddm
 	systemctl enable sddm.service
-	echo "bar_font = xos4 Terminus:pixelsize=14" >> /.spectrwm.conf
 	mkdir -p ~/.config/spectrwm
 	# Spectrwm dependencies (temporary until custom config implemented)
 	pacman -S --noconfirm xlockmore xterm
@@ -257,7 +254,7 @@ get_dot_files() {
     chown $USERNAME:$USERNAME -R /home/$USERNAME
 }
 
-setup_git(){
+setup_git() {
 	git config --global user.name "${GIT_NAME}"
 	git config --global user.name "${GIT_EMAIL}"
 	git config --global color.ui true
