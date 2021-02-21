@@ -26,7 +26,6 @@ GIT_EMAIL='@gmail.com'
 
 ## Alternate code to only prompt password on runtime
 #if [ "$1" == "chroot" ] ; then
-#	install_arch
 #	echo -n "Enter password: "
 #	read -sr PASSWORD
 #	echo
@@ -163,7 +162,7 @@ setup_partitions() {
 		device: ${DRIVE}
 		unit: sectors
 
-		,2G,swap
+		,$SWAP,swap
 		;,linux
 		EOF
 		# Format the partitions
@@ -191,14 +190,15 @@ install_packages() {
 	NOTIFICATIONS="notification-daemon dunst"
 	PDF="okular pdftk"
 	PRINTING="cups cups-pdf system-config-printer"
-	APPEARANCE="gtk3 breeze-gtk lxappearance"
-	pacman -Sy --noconfirm $DEVELOPMENT $TERMINAL $LATEX $NETWORK $GUI_TOOLS $INTEL $AUDIO $NOTIFICATIONS $PDF $PRINTING $APPEARANCE
+	APPEARANCE="gtk3 breeze-gtk lxappearance breeze-icons"
+	OTHER="i3lock"
+	pacman -Sy --noconfirm $DEVELOPMENT $TERMINAL $LATEX $NETWORK $GUI_TOOLS $INTEL $AUDIO $NOTIFICATIONS $PDF $PRINTING $APPEARANCE $OTHER
 	# Enable Deamons
 	systemctl enable NetworkManager
 	systemctl enable cpupower.service
 	systemctl enable bluetooth
 	systemctl enable cups
-	# Other AUR programs: yay tllocalmgr-git pm-utils spotify steam-fonts
+	# Other AUR programs: yay tllocalmgr-git joplin pm-utils steam-fonts discord
 	# Get Doom Emacs (~/.emacs.d/bin is added to PATH by .shellrc, meaning user will still need to run `doom` then `doom install`, just running the latter didn't seem to work??)
 	git clone --depth 1 https://github.com/hlissner/doom-emacs /home/$USERNAME/.emacs.d
 	# Powerlevel10k (note: sourcing p10k config is done in ~ /zshrc)
