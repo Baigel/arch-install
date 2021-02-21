@@ -271,7 +271,13 @@ Printer and Scanner Stuff:
             - put " ATTR{idvendor}=="ID_VENDOR_HERE", ATTR{idProduct}=="ID_PRODUCT_HERE", MODE:="0660", GROUP:="lp", ENV{libsane_matched}:="yes" " into the file (make sure to adjust idvendor and idProduct to that of the printer - find values using lsusb)
             - For the Brother HL-2130, the idvendor is "04f9" and the idProduct is "003f".
 
-             
+
+Setup Hibernation (assuming swap drive is already made)
+	 - Edit /etc/default/grub and add `resume=UUID=4209c845-f495-4c43-8a03-5363dd433153` where UUID is that of the swap drive, to GRUB_CMDLINE_LINUX_DEFAULT
+	 - Reload grub: `grub-mkconfig -o /boot/grub/grub.cfg`
+	 - Add 'resume' to initramfs HOOKS in /etc/mkinitcpio.conf (e.g, HOOKS=(base udev autodetect keyboard modconf block filesystems resume fsck)) (NOTE: HOOKS IS ORDER SPECIFIC)
+	 - Regenerate initramfs: `mkinitcpio -p linux`
+	
 Useful commands:
 	 - Edit disk partitions: "cfdisk /dev/sdX"
 	 - View Partitions with information: "lsblk" OR "df"

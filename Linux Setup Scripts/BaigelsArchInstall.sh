@@ -7,9 +7,6 @@
 # - Get Bluetooth working
 # - Printing
 # - Auto-detection of monitors (udev/xrandr)
-# - Appearance (theme manager)
-# - Theme for programs (like dolphin)
-# - Replace dolphin with something else
 
 set -ex # x flag prints each line of script for debugging
 #set -e # exit on error
@@ -183,24 +180,25 @@ setup_partitions() {
 install_packages() {
 	# User software software
 	DEVELOPMENT="git gcc make cmake libstdc++5 boost-libs boost code python emacs"
-    TERMINAL="alacritty exa ranger dictd xorg-xev xdotool feh termdown nano sysstat acpi cpupower usbutils aspell-en openssh"
+	TERMINAL="alacritty exa ranger htop gtop dictd xorg-xev xdotool feh termdown nano sysstat acpi cpupower usbutils aspell-en openssh"
 	LATEX="texlive-core texlive-latexextra texlive-science"
 	NETWORK="dhcpcd ifplugd dialog networkmanager"
 	BLUETOOTH="bluez bluez-tools blueman"
-	GUI_TOOLS="dolphin firefox flameshot vlc lxrandr"
-    ZIP_TOOLS="p7zip unrar gzip unzip"
+	GUI_TOOLS="pcmanfm firefox flameshot vlc lxrandr"
+	ZIP_TOOLS="p7zip unrar gzip unzip"
 	INTEL="intel-ucode"
 	AUDIO="pulseaudio-alsa pulseaudio pavucontrol pulseaudio-bluetooth alsa-utils playerctl"
-    NOTIFICATIONS="notification-daemon dunst"
+	NOTIFICATIONS="notification-daemon dunst"
 	PDF="okular pdftk"
 	PRINTING="cups cups-pdf system-config-printer"
-	APPEARANCE="gtk34 breeze-gtk lxappearance"
+	APPEARANCE="gtk3 breeze-gtk lxappearance"
 	pacman -Sy --noconfirm $DEVELOPMENT $TERMINAL $LATEX $NETWORK $GUI_TOOLS $INTEL $AUDIO $NOTIFICATIONS $PDF $PRINTING $APPEARANCE
 	# Enable Deamons
 	systemctl enable NetworkManager
 	systemctl enable cpupower.service
 	systemctl enable bluetooth
 	systemctl enable cups
+	# Other AUR programs: yay tllocalmgr-git pm-utils spotify steam-fonts
 	# Get Doom Emacs (~/.emacs.d/bin is added to PATH by .shellrc, meaning user will still need to run `doom` then `doom install`, just running the latter didn't seem to work??)
 	git clone --depth 1 https://github.com/hlissner/doom-emacs /home/$USERNAME/.emacs.d
 	# Powerlevel10k (note: sourcing p10k config is done in ~ /zshrc)
@@ -228,8 +226,6 @@ install_wm() {
 	pacman -S --noconfirm sddm
 	systemctl enable sddm.service
 	mkdir -p ~/.config/spectrwm
-	# Spectrwm dependencies (temporary until custom config implemented)
-	pacman -S --noconfirm xlockmore xterm
 	# Install program manager (rofi)
 	pacman -S --noconfirm rofi
 }
