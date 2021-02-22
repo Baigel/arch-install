@@ -186,7 +186,7 @@ install_packages() {
 	GUI_TOOLS="pcmanfm firefox flameshot vlc lxrandr"
 	ZIP_TOOLS="p7zip unrar gzip unzip"
 	INTEL="intel-ucode"
-	AUDIO="pulseaudio-alsa pulseaudio pavucontrol pulseaudio-bluetooth alsa-utils playerctl"
+	AUDIO="pulseaudio-alsa pamixer pulseaudio pavucontrol pulseaudio-bluetooth alsa-utils playerctl"
 	NOTIFICATIONS="notification-daemon dunst"
 	PDF="okular pdftk"
 	PRINTING="cups cups-pdf system-config-printer"
