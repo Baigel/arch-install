@@ -179,7 +179,7 @@ setup_partitions() {
 install_packages() {
 	# User software software
 	DEVELOPMENT="git gcc make cmake libstdc++5 boost-libs boost code python emacs"
-	TERMINAL="alacritty exa ranger htop gtop dictd xorg-xev xdotool feh termdown nano sysstat acpi cpupower usbutils aspell-en openssh"
+	TERMINAL="alacritty exa ranger htop gtop dictd xorg-xev xdotool feh termdown nano sysstat acpi cpupower aspell-en openssh usbutils udisks2 udiskie"
 	LATEX="texlive-core texlive-latexextra texlive-science"
 	NETWORK="dhcpcd ifplugd dialog networkmanager"
 	BLUETOOTH="bluez bluez-tools blueman"
@@ -195,6 +195,7 @@ install_packages() {
 	pacman -Sy --noconfirm $DEVELOPMENT $TERMINAL $LATEX $NETWORK $GUI_TOOLS $INTEL $AUDIO $NOTIFICATIONS $PDF $PRINTING $APPEARANCE $OTHER
 	# Enable Deamons
 	systemctl enable NetworkManager
+	systemctl enable udisks2
 	systemctl enable cpupower.service
 	systemctl enable bluetooth
 	systemctl enable cups
@@ -210,13 +211,14 @@ configure_x11() {
 	# Install X11 stuff
 	pacman -S --noconfirm xorg xorg-server xorg-xinit
 	# Add config details
-	cat >> ~/.xinitrc <<- EOF
+	cat >> /home/$USERNAME/.xinitrc <<- EOF
 	/usr/bin/setxkbmap us
 	#/usr/bin/numlockx off
 	#/usr/bin/xautolock -time 20 -locker slock &
 	~/.fehbg
-	exec spectrwm
 	dunst
+	udiskie
+	exec spectrwm
 	EOF
 }
 
