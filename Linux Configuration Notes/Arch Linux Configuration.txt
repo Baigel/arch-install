@@ -28,7 +28,7 @@ Install Arch Linux and Plasma 5:
 				 - "swapon /dev/sda2"
 		 - Install Arch linux base system:
 			 - Backup the mirrors: "cp /etc/pacman.d/mirrorlist /etc/pacman.d/mirrorlist.backup" (Note: this clears the original mirrorslist file),
-				rank the mirrors in order from fastest to slowest: "rankmirrors -n 6 /etc/pacman.d/mirrorlist.backup > /etc/pacman.d/mirrorlist" (NOTE: THE ABOVE 
+				rank the mirrors in order from fastest to slowest: "rankmirrors -n 6 /etc/pacman.d/mirrorlist.backup > /etc/pacman.d/mirrorlist" (NOTE: THE ABOVE
 				COMMAND REQUIRES 'pacman-contrib' TO BE INSTALLED. INSTEAD OF THAT MANUALLY UNCOMMENT GEOGRAPHICALLY DISTANT SERVERS ("nano /etc/pacman.d/mirrorlist"))
 			 - Install Arch: "pacstrap /mnt base base-devel"
 		 - Generate the fstab file: "genfstab -U /mnt >> /mnt/etc/fstab", "cat /mnt/etc/fstab" (the last command is just a way of checking it worked)
@@ -44,7 +44,7 @@ Install Arch Linux and Plasma 5:
 		 - Install Grub bootloader: "pacman -S grub os-prober", then "grub-install --recheck --target=i386-pc /dev/sdX", then "grub-mkconfig -o /boot/grub/grub.cfg"
 		 - Exit and Quit: "exit", then "umount -R /mnt", then "reboot"
 
-	Basic KDE Plasma 5 Install Commands: (after installing arch, it may be nessacary to "sudo systemctl disable dhcpcd" to let wifi work - run "sudo wifi-menu -o [networkinterface]")
+	Basic KDE Plasma 5 Install Commands: (after installing arch, it may be necessary to "sudo systemctl disable dhcpcd" to let wifi work - run "sudo wifi-menu -o [networkinterface]")
 		 - Install Packages: "sudo pacman -S xorg xorg-xinit"
 		 - Create X initiation file: "echo "exec startkde" > ~/.xinitrc"
 		 - Install Plasma Desktop: "sudo pacman -S plasma-desktop"
@@ -88,7 +88,7 @@ Things done after installation:
 			 - Check sync/copy status and other stuff: "sudo lvs"
 		 - Make the 'LaptopFiles' Drive Network Available
 			 - ________________________
-		 - 
+		 -
 		 - Install rsync/synckron for backup and sync (see below)
 		 - ______________________
 	 - Changed in Settings:
@@ -209,7 +209,7 @@ Install Packages (Contains how to run the program as well - if it is command bas
 		 - Flatpak (application manager): "sudo pacman -S flatpak"
 		 - Network Manager: "sudo pacman -S networkmanager plasma-nm", then "sudo pacman -S network-manager-applet", disable dhcpcd ("sudo systemctl disable dhcpcd"),
 			enable Network Manger using "sudo systemctl enable NetworkManager" (reboot required after)
-		
+
 		 - LaTeX: "sudo pacman -S texlive-core"
 		 - 7zip: "sudo pacman -S p7zip"
 		 - Audio (alsa + kmix): "sudo pacman -S alsa-utils", then "alsamixer" (restart), get sound buttons/icon using "sudo pacman -S kmix"
@@ -235,7 +235,7 @@ Install Packages (Contains how to run the program as well - if it is command bas
 		 - Grive Sync: "yay grive" ("grive -a" to sync, '-a' to authorize, '-f' to force download), then grive-tools by "yay grive-tools" (Run 'Google Drive Indicator' program afterwards)
 		 - Google Drive Sync (rclone): ___________________________________________________
 		 - Cloudcross (Command Line Google Drive): "yay cloudcross" (Run using "ccross -a --provider google" for authentication, then just "cd /home/ahmed/GoogleDrive"
-			and "ccross" to sync into /home/ahmed/GoogleDrive. Make sure to make the sync folder first!). "--empty-trash" to empty cloud trash. "--prefer arg" to preference the 
+			and "ccross" to sync into /home/ahmed/GoogleDrive. Make sure to make the sync folder first!). "--empty-trash" to empty cloud trash. "--prefer arg" to preference the
 			cloud files, or the local ones. Replace arg with "remote" to preference cloud, and "local" to prefer local (the default is to preference local files)
 	 - Programming IDEs
 		 - Code::Blocks:
@@ -277,7 +277,7 @@ Setup Hibernation (assuming swap drive is already made)
 	 - Reload grub: `grub-mkconfig -o /boot/grub/grub.cfg`
 	 - Add 'resume' to initramfs HOOKS in /etc/mkinitcpio.conf (e.g, HOOKS=(base udev autodetect keyboard modconf block filesystems resume fsck)) (NOTE: HOOKS IS ORDER SPECIFIC)
 	 - Regenerate initramfs: `mkinitcpio -p linux`
-	
+
 Useful commands:
 	 - Edit disk partitions: "cfdisk /dev/sdX"
 	 - View Partitions with information: "lsblk" OR "df"
@@ -312,7 +312,7 @@ Useful commands:
          - Add a job using the format: "[minute] [hour] [day of month] [month] [day-of-week] /path/to/script" (use * to run for all minutes/hours/etc)
          - Save
          - Use "crontab -l" to list current crontab, "crontab -r" to remove current crontab.
-         - 
+         -
 
 Aliases
      - Setup Aliases
@@ -341,7 +341,7 @@ spotdl -f ~/OneDrive/Music/2000s -p https://open.spotify.com/playlist/02xlb0sEJB
 spotdl -f ~/OneDrive/Music/2000s --overwrite skip -l 2000s.txt
 onedrive
 
-     - 
+     -
 
 
 Install Manjaro on Dell Laptop
@@ -354,7 +354,7 @@ Install Manjaro on Dell Laptop
          - Secure Boot/Secure Boot Enable: Select Secure Boot Enable
          - Secure Boot/Secure Boot Mode: Audit Mode
      - Boot to the manjaro installer and continue as normal
-    
+
 Issues and Fixes:
 	 - /etc/pacman.d/mirrorlist is empty: manually add a mirror (I.E. "Server = http://mirrors.kernel.org/archlinux/$repo/os/$arch" to the file) ***OR*** Restart the installation
 	 - Computer freezes after trying to connect to internet: "systemctl disable dhcpcd", then try reconnecting
@@ -374,8 +374,8 @@ Issues and Fixes:
              - Proper Fix:
          - No internet: install drivers "linux419-broadcom-wl" (Note: it is '419' because the kernal version is '419')
              - Use "inxi -n" to see if driver is installed.
-         - No Sound: 
-         - 
+         - No Sound:
+         -
      - NetworkManager not showing wifi (issue on dell laptop):
              - Reboot
              - Revert to older version of the firmware: "sudo pacman -U /var/cache/pacman/pkg/linux-firmware-20191022.2b016af-1-any.pkg.tar.xz"
@@ -386,7 +386,7 @@ Issues and Fixes:
              - Probably still exists, just select it from the confirmation menu when you press shutdown or restart:
              - Actula Fix: __________
 
-    
+
 Other Stuff:
 	 - Download a spotify track/album/playlist
          - Method 1
@@ -453,6 +453,4 @@ Other Stuff:
 	127.0.0.1 geo3.ggpht.com
 	127.0.0.1 showads33000.pubmatic.com
 	127.0.0.1 spclient.wg.spotify.com
-	 - 
-
-
+	 -

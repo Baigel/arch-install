@@ -188,9 +188,9 @@ install_packages() {
 	INTEL="intel-ucode"
 	AUDIO="pulseaudio-alsa pamixer pulseaudio pavucontrol pulseaudio-bluetooth alsa-utils playerctl"
 	NOTIFICATIONS="notification-daemon dunst"
-	PDF="okular pdftk"
+	PDF="pdftk"
 	PRINTING="cups cups-pdf system-config-printer"
-	APPEARANCE="gtk3 breeze-gtk lxappearance breeze-icons"
+	APPEARANCE="gtk3 breeze-gtk lxappearance breeze-icons kvantum-qt5"
 	OTHER="i3lock"
 	pacman -Sy --noconfirm $DEVELOPMENT $TERMINAL $LATEX $NETWORK $GUI_TOOLS $INTEL $AUDIO $NOTIFICATIONS $PDF $PRINTING $APPEARANCE $OTHER
 	# Enable Deamons
