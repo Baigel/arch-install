@@ -1,0 +1,1 @@
+`rofi -combi-modi drun -font "hack 14" -show combi -icon-theme "Papirus" -show-icons`
